@@ -29,7 +29,10 @@ Either:
 - **Per-question tracking**: status (Todo / Attempted / Solved), free-text notes, and a
   monospace SQL-solution editor. Date solved is set automatically the first time you mark
   a problem **Solved**.
-- **Question of the day** — a deterministic unsolved pick, seeded by today's date.
+- **Daily 5** — a deterministic set of 5 unsolved problems for today (seeded by the date);
+  solving one drops it and the next in the fixed daily order takes its place.
+- **🎲 Random** — jump to a random unsolved problem: it clears filters, opens that row, and
+  scrolls to and flashes it.
 - **Analytics tab** — a GitHub-style activity **heatmap**, solved-over-time line chart,
   breakdowns by difficulty and topic, current streak, total solved, completion %.
   All charts are hand-drawn inline SVG.

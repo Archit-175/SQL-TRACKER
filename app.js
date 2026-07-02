@@ -82,30 +82,93 @@
     ).join("");
   }
 
-  // ============ Question of the day ============
-  function renderQOTD() {
-    const el = $("#qotd");
-    const unsolved = QUESTIONS.filter((q) => recordFor(q).status !== "Solved");
-    if (!unsolved.length) {
-      el.hidden = false;
-      el.innerHTML = `<div class="qotd-main"><div class="qotd-badge">Question of the day</div>
-        <div class="qotd-title">Everything is solved — take a victory lap! 🎉</div></div>`;
+  // ============ Practice: Daily 5 + Random ============
+  function unsolvedList() {
+    return QUESTIONS.filter((q) => recordFor(q).status !== "Solved");
+  }
+
+  // Deterministic PRNG (mulberry32) from a numeric seed.
+  function mulberry32(seed) {
+    let a = seed >>> 0;
+    return function () {
+      a = (a + 0x6d2b79f5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  // Up to n unsolved questions in a stable, date-seeded order. As you solve one it drops and the
+  // next unsolved question (in the same fixed daily order) takes its place.
+  function dailyQuestions(n) {
+    const order = QUESTIONS.slice();
+    const rnd = mulberry32(hashStr(Store.todayISO()));
+    for (let i = order.length - 1; i > 0; i--) {
+      const j = Math.floor(rnd() * (i + 1));
+      const t = order[i]; order[i] = order[j]; order[j] = t;
+    }
+    return order.filter((q) => recordFor(q).status !== "Solved").slice(0, n);
+  }
+
+  function practiceRowHTML(q) {
+    return `<div class="prow" data-jump="${q.id}" role="button" tabindex="0">
+      <span class="row-id">#${q.id}</span>
+      <span class="prow-title">${esc(q.title)}</span>
+      <span class="badge badge-${q.difficulty}">${q.difficulty}</span>
+      <span class="chip">${esc(q.topic)}</span>
+      <a class="prow-link" href="${esc(q.url)}" target="_blank" rel="noopener" title="Open on LeetCode" aria-label="Open on LeetCode">↗</a>
+    </div>`;
+  }
+
+  function renderPractice() {
+    const el = $("#practice");
+    el.hidden = false;
+    const five = dailyQuestions(5);
+    if (!five.length) {
+      el.innerHTML = `<div class="practice-head"><div class="practice-title">Daily practice</div>
+        <button class="practice-random" id="practiceRandom" type="button" disabled>🎲 Random</button></div>
+        <div class="practice-empty">Everything is solved — take a victory lap! 🎉</div>`;
       return;
     }
-    // Deterministic index from today's date string.
-    const seed = hashStr(Store.todayISO());
-    const q = unsolved[seed % unsolved.length];
-    el.hidden = false;
     el.innerHTML = `
-      <div class="qotd-main">
-        <div class="qotd-badge">Question of the day</div>
-        <div class="qotd-title"><span class="qid">#${q.id}</span>${esc(q.title)}</div>
-        <div class="qotd-meta">
-          <span class="badge badge-${q.difficulty}">${q.difficulty}</span>
-          <span class="chip">${esc(q.topic)}</span>
+      <div class="practice-head">
+        <div>
+          <div class="practice-title">Daily 5 <span class="practice-date">· ${esc(Store.todayISO())}</span></div>
+          <div class="practice-sub">Your practice set for today — solve one and a new one appears.</div>
         </div>
+        <button class="practice-random" id="practiceRandom" type="button">🎲 Random</button>
       </div>
-      <a class="qotd-cta" href="${esc(q.url)}" target="_blank" rel="noopener">Solve now →</a>`;
+      <div class="practice-list">${five.map(practiceRowHTML).join("")}</div>`;
+  }
+
+  // Pick a random unsolved question and jump to it in the list.
+  function randomPractice() {
+    const pool = unsolvedList();
+    if (!pool.length) { toast("Everything is solved! 🎉", "ok"); return; }
+    const q = pool[Math.floor(Math.random() * pool.length)];
+    jumpToQuestion(q.id);
+    toast(`🎲 #${q.id} · ${q.title}`);
+  }
+
+  // Reveal a question in the list: switch to list view, clear filters, expand its group,
+  // open its detail, scroll to it, and flash it.
+  function jumpToQuestion(id) {
+    id = Number(id);
+    if (state.view !== "list") activateView("list");
+    state.search = state.filterDifficulty = state.filterTopic = state.filterStatus = "";
+    $("#search").value = ""; $("#filterDifficulty").value = ""; $("#filterTopic").value = "";
+    $("#filterStatus").value = "";
+    const q = findQ(id);
+    if (!q) return;
+    state.collapsed.delete(groupKeyOf(q));
+    state.openRows.add(id);
+    renderList();
+    const rowEl = listEl.querySelector(`.row[data-id="${id}"]`);
+    if (rowEl) {
+      rowEl.scrollIntoView({ behavior: "smooth", block: "center" });
+      rowEl.classList.add("flash");
+      setTimeout(() => rowEl.classList.remove("flash"), 1600);
+    }
   }
 
   function hashStr(str) {
@@ -199,7 +262,7 @@
   // Re-render only the summary bits that depend on progress (cheap; keeps open rows intact).
   function refreshSummaries() {
     renderProgress();
-    renderQOTD();
+    renderPractice();
   }
 
   // ============ Analytics ============
@@ -207,10 +270,19 @@
     Analytics.render(analyticsEl);
   }
 
+  // ============ Views ============
+  function activateView(name) {
+    state.view = name;
+    document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("is-active", t.dataset.view === name));
+    $("#view-list").classList.toggle("is-active", name === "list");
+    $("#view-analytics").classList.toggle("is-active", name === "analytics");
+    render();
+  }
+
   // ============ Full render ============
   function render() {
     renderProgress();
-    renderQOTD();
+    renderPractice();
     if (state.view === "list") renderList();
     else renderAnalytics();
     updateLockUI();
@@ -237,11 +309,19 @@
     $("#tabs").addEventListener("click", (e) => {
       const tab = e.target.closest(".tab");
       if (!tab) return;
-      state.view = tab.dataset.view;
-      document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("is-active", t === tab));
-      $("#view-list").classList.toggle("is-active", state.view === "list");
-      $("#view-analytics").classList.toggle("is-active", state.view === "analytics");
-      render();
+      activateView(tab.dataset.view);
+    });
+
+    // Practice panel: random button + jump-to-question rows
+    $("#practice").addEventListener("click", (e) => {
+      if (e.target.closest("#practiceRandom")) { randomPractice(); return; }
+      if (e.target.closest(".prow-link")) return; // let the LeetCode link work normally
+      const jump = e.target.closest("[data-jump]");
+      if (jump) jumpToQuestion(jump.getAttribute("data-jump"));
+    });
+    $("#practice").addEventListener("keydown", (e) => {
+      const jump = e.target.closest("[data-jump]");
+      if (jump && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); jumpToQuestion(jump.getAttribute("data-jump")); }
     });
 
     // Controls
