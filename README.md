@@ -1,5 +1,7 @@
 # SQL Practice Tracker
 
+**🔗 Live site: https://sql-tracker-steel.vercel.app**
+
 A personal, static website to track the LeetCode Database (SQL) problems you're practicing.
 No framework, no build step, no dependencies — just plain HTML/CSS/vanilla JS. All progress is
 stored in your browser's `localStorage`, with optional sync to a private GitHub repo.
