@@ -61,9 +61,9 @@ button { font-family: inherit; cursor: pointer; }
 /* ===================== Topbar ===================== */
 .topbar {
   position: sticky; top: 0; z-index: 40;
-  background: rgba(13, 17, 23, 0.82);
-  backdrop-filter: blur(10px);
+  background: var(--bg-2);
   border-bottom: 1px solid var(--border);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
 }
 .topbar-inner {
   max-width: 960px; margin: 0 auto; padding: 12px 18px;

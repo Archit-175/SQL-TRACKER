@@ -53,34 +53,32 @@ const Analytics = (function () {
     return streak;
   }
 
-  // ---------- Line chart: cumulative solved over time ----------
-  function lineChart(dates) {
-    const W = 640, H = 240, PAD_L = 38, PAD_R = 12, PAD_T = 14, PAD_B = 28;
-    if (!dates.length) return emptyChart("No solved dates yet — mark a problem Solved to start the timeline.");
+  // ---------- Daily progress: problems solved per day (vertical bars) ----------
+  function dailyChart(dates) {
+    if (!dates.length) return emptyChart("No solved dates yet — mark a problem Solved to start tracking daily progress.");
+    const counts = dateCounts(dates);
+    const today = new Date(Store.todayISO() + "T00:00:00");
 
-    // Build cumulative series keyed by unique day.
-    const counts = {};
-    dates.forEach((d) => { counts[d] = (counts[d] || 0) + 1; });
-    const days = Object.keys(counts).sort();
-    const series = [];
-    let cum = 0;
-    days.forEach((d) => { cum += counts[d]; series.push({ d, v: cum }); });
+    // Range: from the first solved day to today, capped to the most recent ~45 days.
+    let startD = new Date(dates.slice().sort()[0] + "T00:00:00");
+    const cap = new Date(today); cap.setDate(cap.getDate() - 44);
+    if (startD < cap) startD = cap;
 
-    const t0 = new Date(days[0] + "T00:00:00").getTime();
-    const t1 = new Date(days[days.length - 1] + "T00:00:00").getTime();
-    const maxV = series[series.length - 1].v;
-    const spanT = Math.max(1, t1 - t0);
+    const days = [];
+    for (const cur = new Date(startD); cur <= today; cur.setDate(cur.getDate() + 1)) {
+      const iso = isoOf(cur);
+      days.push({ iso, n: counts[iso] || 0 });
+    }
 
-    const x = (d) => PAD_L + ((new Date(d + "T00:00:00").getTime() - t0) / spanT) * (W - PAD_L - PAD_R);
-    const y = (v) => H - PAD_B - (v / maxV) * (H - PAD_T - PAD_B);
+    const W = 640, H = 240, PAD_L = 30, PAD_R = 12, PAD_T = 14, PAD_B = 32;
+    const plotW = W - PAD_L - PAD_R, plotH = H - PAD_T - PAD_B;
+    const maxV = Math.max(1, ...days.map((d) => d.n));
+    const baseY = PAD_T + plotH;
+    const x = (i) => PAD_L + (days.length === 1 ? plotW / 2 : (i / (days.length - 1)) * plotW);
+    const y = (v) => PAD_T + plotH - (v / maxV) * plotH;
 
-    const pts = series.map((p) => `${x(p.d).toFixed(1)},${y(p.v).toFixed(1)}`);
-    const linePath = "M" + pts.join(" L");
-    const areaPath = `M${x(series[0].d).toFixed(1)},${(H - PAD_B).toFixed(1)} L` +
-      pts.join(" L") + ` L${x(series[series.length - 1].d).toFixed(1)},${(H - PAD_B).toFixed(1)} Z`;
-
-    // Y gridlines
-    const ticks = niceTicks(maxV, 4);
+    // Y gridlines / ticks
+    const ticks = niceTicks(maxV, Math.min(maxV, 4));
     let grid = "";
     ticks.forEach((tv) => {
       const yy = y(tv).toFixed(1);
@@ -88,26 +86,31 @@ const Analytics = (function () {
       grid += `<text x="${PAD_L - 6}" y="${yy}" text-anchor="end" dominant-baseline="middle" fill="var(--text-faint)" font-size="11" font-family="var(--font-mono)">${tv}</text>`;
     });
 
-    // X labels: first & last date
-    const xlab = (d, anchor) =>
-      `<text x="${x(d).toFixed(1)}" y="${H - 8}" text-anchor="${anchor}" fill="var(--text-faint)" font-size="11" font-family="var(--font-mono)">${shortDate(d)}</text>`;
+    // Line + area from daily counts
+    const pts = days.map((d, i) => `${x(i).toFixed(1)},${y(d.n).toFixed(1)}`);
+    const linePath = "M" + pts.join(" L");
+    const areaPath = `M${x(0).toFixed(1)},${baseY.toFixed(1)} L` + pts.join(" L") +
+      ` L${x(days.length - 1).toFixed(1)},${baseY.toFixed(1)} Z`;
 
-    const dots = series.map((p) =>
-      `<circle cx="${x(p.d).toFixed(1)}" cy="${y(p.v).toFixed(1)}" r="2.5" fill="var(--accent)"><title>${p.d}: ${p.v} solved</title></circle>`
-    ).join("");
+    // Dots + sparse x labels
+    const labelEvery = Math.ceil(days.length / 8);
+    let dots = "", xlabels = "";
+    days.forEach((d, i) => {
+      dots += `<circle cx="${x(i).toFixed(1)}" cy="${y(d.n).toFixed(1)}" r="2.5" fill="var(--accent)"><title>${d.n} solved on ${d.iso}</title></circle>`;
+      if (i % labelEvery === 0 || i === days.length - 1) {
+        xlabels += `<text x="${x(i).toFixed(1)}" y="${H - 10}" text-anchor="middle" fill="var(--text-faint)" font-size="10" font-family="var(--font-mono)">${shortDate(d.iso)}</text>`;
+      }
+    });
 
-    return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Solved over time">
-      <defs><linearGradient id="areaGrad" x1="0" x2="0" y1="0" y2="1">
+    return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Problems solved per day">
+      <defs><linearGradient id="dailyGrad" x1="0" x2="0" y1="0" y2="1">
         <stop offset="0%" stop-color="var(--accent)" stop-opacity="0.28"/>
         <stop offset="100%" stop-color="var(--accent)" stop-opacity="0"/>
       </linearGradient></defs>
       ${grid}
-      <path d="${areaPath}" fill="url(#areaGrad)"/>
+      <path d="${areaPath}" fill="url(#dailyGrad)"/>
       <path d="${linePath}" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
-      ${dots}
-      ${xlab(days[0], "start")}
-      ${days.length > 1 ? xlab(days[days.length - 1], "end") : ""}
-    </svg>`;
+      ${dots}${xlabels}</svg>`;
   }
 
   // ---------- Bar chart (horizontal) ----------
@@ -173,7 +176,8 @@ const Analytics = (function () {
     start.setDate(start.getDate() - (WEEKS * 7 - 1)); // Sunday, WEEKS columns back
 
     const W = LEFT + WEEKS * (CELL + GAP) + 6;
-    const H = TOP + 7 * (CELL + GAP) + 4;
+    const gridBottom = TOP + 7 * (CELL + GAP);
+    const H = gridBottom + 26; // extra band below the grid for the legend
 
     let cells = "", monthLabels = "", lastMonth = -1, lastLabelCol = -2;
     const cursor = new Date(start);
@@ -273,8 +277,8 @@ const Analytics = (function () {
         ${heat.svg}
       </div>
       <div class="chart-card">
-        <h3>Solved over time</h3>
-        ${lineChart(s.dates)}
+        <h3>Daily progress <span style="color:var(--text-faint);font-weight:400;font-size:13px">· problems solved per day</span></h3>
+        ${dailyChart(s.dates)}
       </div>
       <div class="chart-card">
         <h3>By difficulty</h3>
