@@ -100,32 +100,22 @@
         <button class="icon-btn" id="syncClose" title="Close">&times;</button>
       </div>
       <p class="modal-note">
-        Sync your progress to a private GitHub repo. Your token is stored only in this browser's
-        localStorage and is never committed. A fine-grained token with <b>Contents: read/write</b>
-        on a single repo is enough.
+        Sync your progress to a private GitHub <b>Gist</b>. Your token is stored only in this
+        browser's localStorage and is never committed. A token with just the <b>gist</b> scope is
+        enough. Leave the Gist ID blank the first time — Push creates a secret gist and fills it in.
       </p>
       <div class="field">
-        <label for="ghToken">Personal access token</label>
+        <label for="ghToken">Personal access token <span class="opt">(gist scope)</span></label>
         <input type="password" id="ghToken" placeholder="github_pat_… or ghp_…" autocomplete="off" />
       </div>
       <div class="field-grid">
         <div class="field">
-          <label for="ghOwner">Owner</label>
-          <input type="text" id="ghOwner" placeholder="your-username" autocomplete="off" />
+          <label for="ghGistId">Gist ID <span class="opt">(blank = create new)</span></label>
+          <input type="text" id="ghGistId" placeholder="e.g. a1b2c3d4…" autocomplete="off" />
         </div>
         <div class="field">
-          <label for="ghRepo">Repo</label>
-          <input type="text" id="ghRepo" placeholder="sql-tracker-data" autocomplete="off" />
-        </div>
-      </div>
-      <div class="field-grid">
-        <div class="field">
-          <label for="ghPath">File path</label>
-          <input type="text" id="ghPath" placeholder="progress.json" autocomplete="off" />
-        </div>
-        <div class="field">
-          <label for="ghBranch">Branch</label>
-          <input type="text" id="ghBranch" placeholder="main" autocomplete="off" />
+          <label for="ghFile">Filename</label>
+          <input type="text" id="ghFile" placeholder="progress.json" autocomplete="off" />
         </div>
       </div>
       <div class="modal-actions">

@@ -89,21 +89,27 @@ tab/session and clears when you close the tab or click the lock button again.
 
 ## GitHub sync (optional)
 
-Sync keeps a JSON snapshot of your progress in a private repo so you can move between machines.
+Sync keeps a JSON snapshot of your progress in a **private GitHub Gist** so you can move between
+machines. No repo needed.
 
-1. Create a **private** repo (e.g. `sql-tracker-data`).
-2. Create a **fine-grained personal access token** scoped to just that repo with
-   **Contents: Read and write** permission.
-3. Click the **☁ sync** button in the app and fill in:
+1. Create a personal access token with just the **`gist`** scope:
+   - Classic token: **Settings → Developer settings → Tokens (classic)**, check only **`gist`**.
+   - (Set a finite expiration rather than "No expiration".)
+2. Click the **☁ sync** button in the app and fill in:
    - **Token** — pasted PAT (stored **only** in this browser's `localStorage`; never committed)
-   - **Owner** / **Repo** / **File path** (default `progress.json`) / **Branch** (default `main`)
-4. **Push** writes your local progress to the repo. **Pull** fetches it and merges into local
-   storage (remote values win per `id`). Use **Clear token** to remove the stored token.
+   - **Gist ID** — leave **blank** the first time
+   - **Filename** — default `progress.json`
+3. **Push** — the first push creates a new **secret gist** and fills the Gist ID back into the
+   form (copy it / it's saved locally). Later pushes update that same gist.
+4. **Pull** — on another machine, paste the same token **and** the Gist ID, then Pull. It fetches
+   the gist and merges into local storage (remote values win per `id`).
+5. Use **Clear token** to remove the stored token from a machine that isn't yours.
 
 Notes:
 - The token never leaves your browser except in the `Authorization` header of requests to
   `api.github.com`. It is not written into any file in this project.
-- Push creates the file if it doesn't exist and updates it (using its `sha`) if it does.
+- The gist is **secret** (not listed publicly), but "secret" gists are still viewable by anyone
+  with the URL — don't put anything truly sensitive in your notes/solutions.
 
 ## Fonts
 

@@ -374,26 +374,22 @@
   function openSync() {
     const cfg = Sync.loadConfig();
     $("#ghToken").value = cfg.token || "";
-    $("#ghOwner").value = cfg.owner || "";
-    $("#ghRepo").value = cfg.repo || "";
-    $("#ghPath").value = cfg.path || "progress.json";
-    $("#ghBranch").value = cfg.branch || "main";
+    $("#ghGistId").value = cfg.gistId || "";
+    $("#ghFile").value = cfg.filename || "progress.json";
     setSyncStatus("", "");
     $("#syncBackdrop").hidden = false;
   }
   function closeSync() { $("#syncBackdrop").hidden = true; }
-  function setSyncStatus(msg, kind) {
+  function setSyncStatus(html, kind) {
     const el = $("#syncStatus");
-    el.textContent = msg;
+    el.innerHTML = html;
     el.className = "sync-status" + (kind ? " " + kind : "");
   }
   function readSyncForm() {
     const cfg = {
       token: $("#ghToken").value.trim(),
-      owner: $("#ghOwner").value.trim(),
-      repo: $("#ghRepo").value.trim(),
-      path: ($("#ghPath").value.trim() || "progress.json"),
-      branch: ($("#ghBranch").value.trim() || "main"),
+      gistId: $("#ghGistId").value.trim(),
+      filename: ($("#ghFile").value.trim() || "progress.json"),
     };
     Sync.saveConfig(cfg);
     return cfg;
@@ -402,12 +398,19 @@
     const cfg = readSyncForm();
     setSyncStatus(kind === "push" ? "Pushing…" : "Pulling…", "busy");
     try {
-      const msg = kind === "push" ? await Sync.push(cfg) : await Sync.pull(cfg);
-      setSyncStatus(msg, "ok");
+      const res = kind === "push" ? await Sync.push(cfg) : await Sync.pull(cfg);
+      // Persist a newly created gist id back into the form + config.
+      if (res.gistId && res.gistId !== cfg.gistId) {
+        cfg.gistId = res.gistId;
+        Sync.saveConfig(cfg);
+        $("#ghGistId").value = res.gistId;
+      }
+      const link = res.gistUrl ? ` <a href="${esc(res.gistUrl)}" target="_blank" rel="noopener">view gist ↗</a>` : "";
+      setSyncStatus(esc(res.message) + link, "ok");
       if (kind === "pull") { render(); }
-      toast(msg, "ok");
+      toast(res.message, "ok");
     } catch (err) {
-      setSyncStatus(err.message || String(err), "err");
+      setSyncStatus(esc(err.message || String(err)), "err");
       toast("Sync failed", "err");
     }
   }
