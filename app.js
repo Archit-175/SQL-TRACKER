@@ -98,24 +98,41 @@
     };
   }
 
-  // Up to n untouched (status "Todo") questions in a stable, date-seeded order — never Solved or
-  // Attempted. As you start/solve one it drops and the next Todo (in the fixed daily order) fills in.
-  function dailyQuestions(n) {
+  // Today's Daily 5 is chosen once (5 untouched "Todo" problems, date-seeded) and then FROZEN for
+  // the day — persisted so it doesn't reshuffle when you solve one. Recomputed when the date rolls.
+  const DAILY_KEY = "sqltracker:daily:v1";
+  function getDailyIds() {
+    const today = Store.todayISO();
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem(DAILY_KEY) || "null"); } catch (e) {}
+    if (saved && saved.date === today && Array.isArray(saved.ids) && saved.ids.length) return saved.ids;
+
     const order = QUESTIONS.slice();
-    const rnd = mulberry32(hashStr(Store.todayISO()));
+    const rnd = mulberry32(hashStr(today));
     for (let i = order.length - 1; i > 0; i--) {
       const j = Math.floor(rnd() * (i + 1));
       const t = order[i]; order[i] = order[j]; order[j] = t;
     }
-    return order.filter((q) => recordFor(q).status === "Todo").slice(0, n);
+    const ids = order.filter((q) => recordFor(q).status === "Todo").slice(0, 5).map((q) => q.id);
+    try { localStorage.setItem(DAILY_KEY, JSON.stringify({ date: today, ids })); } catch (e) {}
+    return ids;
+  }
+  // The frozen Daily 5 as question objects.
+  function dailyQuestions() {
+    return getDailyIds().map((id) => findQ(id)).filter(Boolean);
   }
 
   function practiceRowHTML(q) {
-    return `<div class="prow" data-jump="${q.id}" role="button" tabindex="0">
+    const solved = recordFor(q).status === "Solved";
+    const action = solved
+      ? `<span class="prow-done" title="Solved">Solved ✓</span>`
+      : `<button class="prow-solve" data-solve="${q.id}" type="button" title="Mark as solved">✓ Solve</button>`;
+    return `<div class="prow${solved ? " done" : ""}" data-jump="${q.id}" role="button" tabindex="0">
       <span class="row-id">#${q.id}</span>
       <span class="prow-title">${esc(q.title)}</span>
       <span class="badge badge-${q.difficulty}">${q.difficulty}</span>
       <span class="chip">${esc(q.topic)}</span>
+      ${action}
       <a class="prow-link" href="${esc(q.url)}" target="_blank" rel="noopener" title="Open on LeetCode" aria-label="Open on LeetCode">↗</a>
     </div>`;
   }
@@ -123,20 +140,21 @@
   function renderPractice() {
     const el = $("#practice");
     el.hidden = false;
-    const five = dailyQuestions(5);   // untouched (Todo) only
+    const five = dailyQuestions();    // frozen set of 5 for today
     const unsolved = unsolvedList();  // Todo + Attempted (for the Random pool)
+    const done = five.filter((q) => recordFor(q).status === "Solved").length;
 
     const dailyCard = five.length
       ? `<div class="practice-card daily-card">
           <div class="practice-head"><div>
             <div class="practice-title">Daily 5 <span class="practice-date">· ${esc(Store.todayISO())}</span></div>
-            <div class="practice-sub">Fresh problems you haven't started — solve one and a new one appears.</div>
+            <div class="practice-sub">Your fixed set for today — <b>${done}/${five.length} solved</b>.</div>
           </div></div>
           <div class="practice-list">${five.map(practiceRowHTML).join("")}</div>
         </div>`
       : `<div class="practice-card daily-card">
           <div class="practice-title">Daily 5 <span class="practice-date">· ${esc(Store.todayISO())}</span></div>
-          <div class="practice-empty">No untouched problems left for today — nice work! 🎉</div>
+          <div class="practice-empty">No untouched problems to pick for today — nice work! 🎉</div>
         </div>`;
 
     const randomCard = unsolved.length
@@ -152,9 +170,21 @@
     el.innerHTML = dailyCard + randomCard;
   }
 
+  // Mark a Daily 5 problem Solved directly from the practice panel (requires unlock).
+  function markSolvedFromPractice(id) {
+    if (!requireUnlocked()) return;
+    const q = findQ(id);
+    if (!q) return;
+    Store.set(q, { status: "Solved" });
+    refreshSummaries();               // re-render practice (row shows Solved ✓) + progress
+    if (state.view === "list") renderList();
+    Cloud.schedulePush();
+    toast(`Solved #${q.id} 🎉`, "ok");
+  }
+
   // Pick a random unsolved question that is NOT in today's Daily 5, and jump to it.
   function randomPractice() {
-    const daily = new Set(dailyQuestions(5).map((q) => q.id));
+    const daily = new Set(dailyQuestions().map((q) => q.id));
     let pool = unsolvedList().filter((q) => !daily.has(q.id));
     if (!pool.length) pool = unsolvedList(); // fallback if all remaining unsolved are the Daily 5
     if (!pool.length) { toast("Everything is solved! 🎉", "ok"); return; }
@@ -325,9 +355,11 @@
       activateView(tab.dataset.view);
     });
 
-    // Practice panel: random button + jump-to-question rows
+    // Practice panel: random button + mark-solved + jump-to-question rows
     $("#practice").addEventListener("click", (e) => {
       if (e.target.closest("#practiceRandom")) { randomPractice(); return; }
+      const solve = e.target.closest("[data-solve]");
+      if (solve) { markSolvedFromPractice(solve.getAttribute("data-solve")); return; }
       if (e.target.closest(".prow-link")) return; // let the LeetCode link work normally
       const jump = e.target.closest("[data-jump]");
       if (jump) jumpToQuestion(jump.getAttribute("data-jump"));

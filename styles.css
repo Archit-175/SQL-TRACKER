@@ -168,6 +168,15 @@ button { font-family: inherit; cursor: pointer; }
   width: 26px; height: 26px; display: grid; place-items: center; border-radius: 6px;
 }
 .prow-link:hover { color: var(--accent); background: var(--accent-glow); text-decoration: none; }
+.prow-solve {
+  font-size: 12px; font-weight: 700; white-space: nowrap;
+  background: transparent; color: var(--accent); border: 1px solid var(--accent-dim);
+  padding: 5px 10px; border-radius: 7px; transition: all .15s;
+}
+.prow-solve:hover { background: var(--accent); color: #062a17; }
+.prow-done { font-size: 12px; font-weight: 700; color: var(--accent); white-space: nowrap; padding: 5px 4px; }
+.prow.done { opacity: 0.7; }
+.prow.done .prow-title { text-decoration: line-through; color: var(--text-dim); }
 
 /* Flash a row when jumped-to from practice/random */
 .row.flash { animation: rowflash 1.6s ease; }
