@@ -98,8 +98,8 @@
     };
   }
 
-  // Up to n unsolved questions in a stable, date-seeded order. As you solve one it drops and the
-  // next unsolved question (in the same fixed daily order) takes its place.
+  // Up to n untouched (status "Todo") questions in a stable, date-seeded order — never Solved or
+  // Attempted. As you start/solve one it drops and the next Todo (in the fixed daily order) fills in.
   function dailyQuestions(n) {
     const order = QUESTIONS.slice();
     const rnd = mulberry32(hashStr(Store.todayISO()));
@@ -107,7 +107,7 @@
       const j = Math.floor(rnd() * (i + 1));
       const t = order[i]; order[i] = order[j]; order[j] = t;
     }
-    return order.filter((q) => recordFor(q).status !== "Solved").slice(0, n);
+    return order.filter((q) => recordFor(q).status === "Todo").slice(0, n);
   }
 
   function practiceRowHTML(q) {
@@ -123,30 +123,33 @@
   function renderPractice() {
     const el = $("#practice");
     el.hidden = false;
-    const unsolved = unsolvedList();
-    if (!unsolved.length) {
-      el.innerHTML = `<div class="practice-card daily-card"><div class="practice-title">Daily practice</div>
-        <div class="practice-empty">Everything is solved — take a victory lap! 🎉</div></div>`;
-      return;
-    }
-    const five = dailyQuestions(5);
-    el.innerHTML = `
-      <div class="practice-card daily-card">
-        <div class="practice-head">
-          <div>
+    const five = dailyQuestions(5);   // untouched (Todo) only
+    const unsolved = unsolvedList();  // Todo + Attempted (for the Random pool)
+
+    const dailyCard = five.length
+      ? `<div class="practice-card daily-card">
+          <div class="practice-head"><div>
             <div class="practice-title">Daily 5 <span class="practice-date">· ${esc(Store.todayISO())}</span></div>
-            <div class="practice-sub">Your fixed set for today — solve one and a new one appears.</div>
+            <div class="practice-sub">Fresh problems you haven't started — solve one and a new one appears.</div>
+          </div></div>
+          <div class="practice-list">${five.map(practiceRowHTML).join("")}</div>
+        </div>`
+      : `<div class="practice-card daily-card">
+          <div class="practice-title">Daily 5 <span class="practice-date">· ${esc(Store.todayISO())}</span></div>
+          <div class="practice-empty">No untouched problems left for today — nice work! 🎉</div>
+        </div>`;
+
+    const randomCard = unsolved.length
+      ? `<div class="practice-card random-card">
+          <div class="random-info">
+            <div class="random-title">🎲 Random practice</div>
+            <div class="practice-sub">Jump to a random unsolved problem — never one of today's Daily 5.</div>
           </div>
-        </div>
-        <div class="practice-list">${five.map(practiceRowHTML).join("")}</div>
-      </div>
-      <div class="practice-card random-card">
-        <div class="random-info">
-          <div class="random-title">🎲 Random practice</div>
-          <div class="practice-sub">Jump to a random unsolved problem — never one of today's Daily 5.</div>
-        </div>
-        <button class="practice-random" id="practiceRandom" type="button">Surprise me →</button>
-      </div>`;
+          <button class="practice-random" id="practiceRandom" type="button">Surprise me →</button>
+        </div>`
+      : "";
+
+    el.innerHTML = dailyCard + randomCard;
   }
 
   // Pick a random unsolved question that is NOT in today's Daily 5, and jump to it.
