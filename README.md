@@ -29,10 +29,12 @@ Either:
 - **Per-question tracking**: status (Todo / Attempted / Solved), free-text notes, and a
   monospace SQL-solution editor. Date solved is set automatically the first time you mark
   a problem **Solved**.
-- **Daily 5** — 5 untouched (`Todo`) problems chosen once for the day (date-seeded) and then
-  **frozen for the rest of the day**: solving one does *not* reshuffle the set — it stays and shows
-  as ✓ done, with an "X/5 solved" counter. Each row has a **✓ Solve** button to mark it Solved in
-  one click (unlock required). The set is recomputed when the date rolls over.
+- **Daily 5** — 5 problems for today, **identical on every device**: the pick is a pure function of
+  the date and the shared published snapshot (`progress.js`), so no device drifts. It excludes
+  problems already solved as of the last published snapshot, and is **frozen** against your live
+  same-day solving — a Daily-5 problem you solve today stays in the set, shown as ✓ done, with an
+  "X/5 solved" counter. Each row has a **✓ Solve** button (unlock required). The set shifts only
+  when the date rolls over or you publish a new `progress.js` (via **Save snapshot**).
 - **🎲 Random practice** — a separate card that jumps to a random unsolved problem, **never one
   of today's Daily 5**. It clears filters, opens that row, and scrolls to + flashes it.
 - **Analytics tab** — a GitHub-style activity **heatmap**, solved-over-time line chart,

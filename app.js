@@ -98,28 +98,26 @@
     };
   }
 
-  // Today's Daily 5 is chosen once (5 untouched "Todo" problems, date-seeded) and then FROZEN for
-  // the day — persisted so it doesn't reshuffle when you solve one. Recomputed when the date rolls.
-  const DAILY_KEY = "sqltracker:daily:v1";
-  function getDailyIds() {
-    const today = Store.todayISO();
-    let saved = null;
-    try { saved = JSON.parse(localStorage.getItem(DAILY_KEY) || "null"); } catch (e) {}
-    if (saved && saved.date === today && Array.isArray(saved.ids) && saved.ids.length) return saved.ids;
-
+  // Daily 5 = a deterministic pick of 5 problems for today that is IDENTICAL on every device.
+  // "Already solved" is read from the shared published snapshot (progress.js) + seed data — both the
+  // same everywhere — so the pick is a pure function of the date and shared state, needing no local
+  // persistence. It's therefore frozen against your live same-day solving (a Daily-5 item you solve
+  // today stays, shown as done); it only shifts when you publish a new progress.js or the date rolls.
+  function publishedSolvedIds() {
+    const set = new Set();
+    const st = (window.PUBLISHED_PROGRESS && window.PUBLISHED_PROGRESS.status) || {};
+    Object.keys(st).forEach((id) => { if (st[id] === "Solved") set.add(Number(id)); });
+    return set;
+  }
+  function dailyQuestions() {
+    const solved = publishedSolvedIds();
     const order = QUESTIONS.slice();
-    const rnd = mulberry32(hashStr(today));
+    const rnd = mulberry32(hashStr(Store.todayISO()));
     for (let i = order.length - 1; i > 0; i--) {
       const j = Math.floor(rnd() * (i + 1));
       const t = order[i]; order[i] = order[j]; order[j] = t;
     }
-    const ids = order.filter((q) => recordFor(q).status === "Todo").slice(0, 5).map((q) => q.id);
-    try { localStorage.setItem(DAILY_KEY, JSON.stringify({ date: today, ids })); } catch (e) {}
-    return ids;
-  }
-  // The frozen Daily 5 as question objects.
-  function dailyQuestions() {
-    return getDailyIds().map((id) => findQ(id)).filter(Boolean);
+    return order.filter((q) => !q.done && !solved.has(q.id)).slice(0, 5);
   }
 
   function practiceRowHTML(q) {
