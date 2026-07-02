@@ -96,33 +96,31 @@
   <div class="modal-backdrop" id="syncBackdrop" hidden>
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="syncHeading">
       <div class="modal-head">
-        <h2 id="syncHeading">GitHub Sync</h2>
+        <h2 id="syncHeading">Cloud Sync</h2>
         <button class="icon-btn" id="syncClose" title="Close">&times;</button>
       </div>
       <p class="modal-note">
-        Sync your progress to a private GitHub <b>Gist</b>. Your token is stored only in this
-        browser's localStorage and is never committed. A token with just the <b>gist</b> scope is
-        enough. Leave the Gist ID blank the first time — Push creates a secret gist and fills it in.
+        One private <b>Gist</b> shared across all your devices — no Gist ID to copy. Connect once
+        with a <b>gist</b>-scope token; the token is encrypted with your PIN and saved in
+        <code>progress.js</code>, so other devices auto-connect just by unlocking with the PIN.
       </p>
-      <div class="field">
+
+      <div class="sync-row">
+        <span class="sync-badge" id="syncBadge">Not connected</span>
+        <span class="sync-when" id="syncWhen"></span>
+      </div>
+
+      <div class="field" id="tokenField">
         <label for="ghToken">Personal access token <span class="opt">(gist scope)</span></label>
         <input type="password" id="ghToken" placeholder="github_pat_… or ghp_…" autocomplete="off" />
       </div>
-      <div class="field-grid">
-        <div class="field">
-          <label for="ghGistId">Gist ID <span class="opt">(blank = create new)</span></label>
-          <input type="text" id="ghGistId" placeholder="e.g. a1b2c3d4…" autocomplete="off" />
-        </div>
-        <div class="field">
-          <label for="ghFile">Filename</label>
-          <input type="text" id="ghFile" placeholder="progress.json" autocomplete="off" />
-        </div>
-      </div>
+
       <div class="modal-actions">
-        <button class="btn btn-ghost" id="ghClear" type="button">Clear token</button>
+        <button class="btn btn-ghost" id="syncDisconnect" type="button" hidden>Disconnect</button>
+        <button class="btn" id="syncSnapshot" type="button" hidden>Save snapshot</button>
         <div class="spacer"></div>
-        <button class="btn" id="ghPull" type="button">Pull</button>
-        <button class="btn btn-accent" id="ghPush" type="button">Push</button>
+        <button class="btn" id="syncSyncNow" type="button" hidden>Sync now</button>
+        <button class="btn btn-accent" id="syncConnect" type="button">Connect</button>
       </div>
       <div class="sync-status" id="syncStatus" aria-live="polite"></div>
     </div>
@@ -152,6 +150,7 @@
 
   <!-- Scripts: order matters (no modules, works from file://) -->
   <script src="questions.js"></script>
+  <script src="progress.js"></script>
   <script src="storage.js"></script>
   <script src="analytics.js"></script>
   <script src="sync.js"></script>

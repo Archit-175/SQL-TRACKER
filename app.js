@@ -4,7 +4,7 @@
   "use strict";
 
   // ============ Config ============
-  const EDIT_PIN = "6612"; // change this to set your own PIN (see README).
+  // The edit PIN is stored as a SHA-256 hash in sync.js (Cloud.PIN_HASH), never in plaintext.
   const DIFF_ORDER = { Easy: 0, Medium: 1, Hard: 2 };
   const DIFF_COLOR = { Easy: "var(--easy)", Medium: "var(--medium)", Hard: "var(--hard)" };
   const TOPIC_ORDER = ["Basics", "Joins", "Aggregation", "Subqueries", "Window", "String", "Date", "Pivot"];
@@ -290,6 +290,7 @@
         // Update this group's count.
         updateGroupCount(st.closest(".group"));
         refreshSummaries();
+        Cloud.schedulePush();
       }
     });
 
@@ -297,8 +298,8 @@
     listEl.addEventListener("input", (e) => {
       const notes = e.target.closest("[data-notes]");
       const sol = e.target.closest("[data-solution]");
-      if (notes) { Store.set(findQ(notes.dataset.notes), { notes: notes.value }); }
-      else if (sol) { Store.set(findQ(sol.dataset.solution), { solution: sol.value }); }
+      if (notes) { Store.set(findQ(notes.dataset.notes), { notes: notes.value }); Cloud.schedulePush(); }
+      else if (sol) { Store.set(findQ(sol.dataset.solution), { solution: sol.value }); Cloud.schedulePush(); }
     });
     // Guard: if locked, block typing by refocusing away (textareas are disabled anyway).
 
@@ -316,16 +317,20 @@
     });
 
     // PIN modal
-    $("#pinForm").addEventListener("submit", (e) => {
+    $("#pinForm").addEventListener("submit", async (e) => {
       e.preventDefault();
       const val = $("#pinInput").value;
-      if (val === EDIT_PIN) {
+      const ok = await Cloud.verifyPin(val);
+      if (ok) {
         state.unlocked = true;
         sessionStorage.setItem("sqltracker:unlocked", "1");
         closePin();
         updateLockUI();
         renderList();
         toast("Editing unlocked", "ok");
+        // Remember the PIN in memory and auto-connect cloud sync if a token is published.
+        Cloud.setPin(val);
+        Cloud.autoConnect(val);
       } else {
         $("#pinError").hidden = false;
         $("#pinInput").select();
@@ -338,13 +343,15 @@
     $("#syncBtn").addEventListener("click", openSync);
     $("#syncClose").addEventListener("click", closeSync);
     $("#syncBackdrop").addEventListener("click", (e) => { if (e.target === $("#syncBackdrop")) closeSync(); });
-    $("#ghPush").addEventListener("click", () => doSync("push"));
-    $("#ghPull").addEventListener("click", () => doSync("pull"));
-    $("#ghClear").addEventListener("click", () => {
-      Sync.clearToken();
+    $("#syncConnect").addEventListener("click", async () => {
+      const token = $("#ghToken").value;
       $("#ghToken").value = "";
-      setSyncStatus("Token cleared.", "ok");
+      setSyncStatus("Connecting…", "busy");
+      await Cloud.connectWithToken(token);
     });
+    $("#syncSyncNow").addEventListener("click", () => { setSyncStatus("Syncing…", "busy"); Cloud.syncNow(); });
+    $("#syncDisconnect").addEventListener("click", () => Cloud.disconnect());
+    $("#syncSnapshot").addEventListener("click", downloadSnapshot);
 
     // Global esc
     document.addEventListener("keydown", (e) => {
@@ -371,12 +378,11 @@
   function closePin() { $("#pinBackdrop").hidden = true; }
 
   // ============ Sync modal helpers ============
+  const CLOUD_LABEL = { off: "Not connected", syncing: "Syncing…", ok: "Synced", error: "Sync error" };
+
   function openSync() {
-    const cfg = Sync.loadConfig();
-    $("#ghToken").value = cfg.token || "";
-    $("#ghGistId").value = cfg.gistId || "";
-    $("#ghFile").value = cfg.filename || "progress.json";
     setSyncStatus("", "");
+    setCloudUI(Cloud.state(), Cloud.lastSync());
     $("#syncBackdrop").hidden = false;
   }
   function closeSync() { $("#syncBackdrop").hidden = true; }
@@ -385,34 +391,47 @@
     el.innerHTML = html;
     el.className = "sync-status" + (kind ? " " + kind : "");
   }
-  function readSyncForm() {
-    const cfg = {
-      token: $("#ghToken").value.trim(),
-      gistId: $("#ghGistId").value.trim(),
-      filename: ($("#ghFile").value.trim() || "progress.json"),
-    };
-    Sync.saveConfig(cfg);
-    return cfg;
+
+  // Reflect cloud state in the header button + modal (badge, which controls show).
+  function setCloudUI(cloudState, lastSync) {
+    const s = cloudState || "off";
+    const connected = Cloud.isConnected();
+
+    // Header cloud button
+    const btn = $("#syncBtn");
+    btn.classList.remove("ok", "syncing", "error");
+    if (s !== "off") btn.classList.add(s);
+    btn.title = "Cloud sync — " + (CLOUD_LABEL[s] || "Not connected");
+
+    // Badge
+    const badge = $("#syncBadge");
+    badge.textContent = CLOUD_LABEL[s] || "Not connected";
+    badge.className = "sync-badge" + (s !== "off" ? " " + s : "");
+    $("#syncWhen").textContent = lastSync ? "last: " + new Date(lastSync).toLocaleString() : "";
+
+    // Controls: token+Connect when disconnected; Sync now + Disconnect when connected.
+    $("#tokenField").hidden = connected;
+    $("#syncConnect").hidden = connected;
+    $("#syncSyncNow").hidden = !connected;
+    $("#syncDisconnect").hidden = !connected;
+    // Save snapshot only makes sense in edit mode (unlocked).
+    $("#syncSnapshot").hidden = !state.unlocked;
   }
-  async function doSync(kind) {
-    const cfg = readSyncForm();
-    setSyncStatus(kind === "push" ? "Pushing…" : "Pulling…", "busy");
-    try {
-      const res = kind === "push" ? await Sync.push(cfg) : await Sync.pull(cfg);
-      // Persist a newly created gist id back into the form + config.
-      if (res.gistId && res.gistId !== cfg.gistId) {
-        cfg.gistId = res.gistId;
-        Sync.saveConfig(cfg);
-        $("#ghGistId").value = res.gistId;
-      }
-      const link = res.gistUrl ? ` <a href="${esc(res.gistUrl)}" target="_blank" rel="noopener">view gist ↗</a>` : "";
-      setSyncStatus(esc(res.message) + link, "ok");
-      if (kind === "pull") { render(); }
-      toast(res.message, "ok");
-    } catch (err) {
-      setSyncStatus(esc(err.message || String(err)), "err");
-      toast("Sync failed", "err");
-    }
+
+  // Download an updated progress.js for the owner to commit.
+  function downloadSnapshot() {
+    const text = Cloud.buildProgressJs();
+    const blob = new Blob([text], { type: "text/javascript" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "progress.js";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    const note = Cloud.hasPendingBlob()
+      ? "Downloaded progress.js (includes encrypted token). Commit it to enable PIN-unlock on all devices."
+      : "Downloaded progress.js. Commit it to publish your progress.";
+    setSyncStatus(esc(note), "ok");
+    toast("Saved progress.js", "ok");
   }
 
   // ============ Init ============
@@ -431,6 +450,12 @@
     wire();
     updateLockUI();
     render();
+    // Cloud sync: reflect status in UI, re-render when a pull changes local data.
+    Cloud.init({
+      onStatus: (s, last) => setCloudUI(s, last),
+      onData: () => render(),
+      toast: (m) => toast(m),
+    });
   }
 
   document.addEventListener("DOMContentLoaded", init);

@@ -37,11 +37,62 @@ const Store = (function () {
     };
   }
 
-  // Effective record = defaults (from seed) overlaid with any saved fields (saved wins).
+  // Effective record = seed defaults < published snapshot < local working copy (saved wins).
   function get(q) {
     const base = defaultRecord(q);
+
+    // Layer the committed published snapshot (shared baseline across devices).
+    const pub = (typeof window !== "undefined" && window.PUBLISHED_PROGRESS) || null;
+    if (pub) {
+      if (pub.status && pub.status[q.id]) base.status = pub.status[q.id];
+      if (pub.notes && pub.notes[q.id] != null) base.notes = pub.notes[q.id];
+      if (pub.solution && pub.solution[q.id] != null) base.solution = pub.solution[q.id];
+      if (pub.solvedAt && pub.solvedAt[q.id]) base.dateSolved = pub.solvedAt[q.id];
+    }
+
     const saved = data[q.id];
     return saved ? Object.assign(base, saved) : base;
+  }
+
+  const byId = (id) => QUESTIONS.find((x) => String(x.id) === String(id));
+  const ensure = (id) => (data[id] = data[id] || {});
+
+  // Build a compact snapshot of effective progress, keyed by id (for gist + progress.js).
+  function buildSnapshot() {
+    const status = {}, notes = {}, solution = {}, solvedAt = {};
+    QUESTIONS.forEach((q) => {
+      const r = get(q);
+      if (r.status && r.status !== "Todo") status[q.id] = r.status;
+      if (r.notes) notes[q.id] = r.notes;
+      if (r.solution) solution[q.id] = r.solution;
+      if (r.dateSolved) solvedAt[q.id] = r.dateSolved;
+    });
+    return { app: "sql-tracker", status, notes, solution, solvedAt };
+  }
+
+  // Union-merge remote snapshot into local; never clobber a stronger/non-empty local value.
+  function mergeRemote(remote) {
+    if (!remote || typeof remote !== "object") return false;
+    let changed = false;
+    Object.keys(remote.status || {}).forEach((id) => {
+      const q = byId(id); if (!q) return;
+      const cur = get(q);
+      if (remote.status[id] && cur.status !== "Solved" && remote.status[id] !== cur.status) {
+        ensure(id).status = remote.status[id];
+        if (remote.solvedAt && remote.solvedAt[id] && !cur.dateSolved) ensure(id).dateSolved = remote.solvedAt[id];
+        changed = true;
+      }
+    });
+    Object.keys(remote.notes || {}).forEach((id) => {
+      const q = byId(id); if (!q) return;
+      if (remote.notes[id] && !get(q).notes) { ensure(id).notes = remote.notes[id]; changed = true; }
+    });
+    Object.keys(remote.solution || {}).forEach((id) => {
+      const q = byId(id); if (!q) return;
+      if (remote.solution[id] && !get(q).solution) { ensure(id).solution = remote.solution[id]; changed = true; }
+    });
+    if (changed) persist();
+    return changed;
   }
 
   function todayISO() {
@@ -84,5 +135,5 @@ const Store = (function () {
     persist();
   }
 
-  return { get, set, merge, exportAll, replaceAll, todayISO };
+  return { get, set, merge, exportAll, replaceAll, todayISO, buildSnapshot, mergeRemote };
 })();

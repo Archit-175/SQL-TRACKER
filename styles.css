@@ -309,6 +309,28 @@ button { font-family: inherit; cursor: pointer; }
 .sync-status.err { color: var(--hard); }
 .sync-status.busy { color: var(--text-dim); }
 
+.sync-row { display: flex; align-items: center; gap: 10px; margin: 4px 0 14px; }
+.sync-badge {
+  font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px;
+  border: 1px solid var(--border-2); color: var(--text-dim); background: var(--bg-2);
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.sync-badge::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--text-faint); }
+.sync-badge.ok { color: var(--accent); border-color: var(--accent-dim); }
+.sync-badge.ok::before { background: var(--accent); }
+.sync-badge.syncing { color: var(--medium); border-color: var(--medium); }
+.sync-badge.syncing::before { background: var(--medium); animation: pulse 1s infinite; }
+.sync-badge.error { color: var(--hard); border-color: var(--hard); }
+.sync-badge.error::before { background: var(--hard); }
+.sync-when { font-size: 12px; color: var(--text-faint); }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+/* Header cloud button reflects sync state */
+.icon-btn.ok { color: var(--accent); border-color: var(--accent-dim); }
+.icon-btn.syncing { color: var(--medium); border-color: var(--medium); }
+.icon-btn.error { color: var(--hard); border-color: var(--hard); }
+.modal-note code { font-family: var(--font-mono); font-size: 12px; color: var(--text); background: var(--bg-2); padding: 1px 5px; border-radius: 4px; }
+
 .pin-input {
   width: 100%; text-align: center; letter-spacing: 8px; font-size: 22px;
   font-family: var(--font-mono); background: var(--bg); border: 1px solid var(--border);

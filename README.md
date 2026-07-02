@@ -43,10 +43,11 @@ Either:
 | `index.html` | Markup shell + modals |
 | `styles.css` | Dark theme, green accent, `@font-face` |
 | `questions.js` | The `QUESTIONS` seed array (edit this to add problems) |
-| `storage.js` | `localStorage` persistence, keyed by `id` |
+| `progress.js` | Committed `PUBLISHED_PROGRESS` snapshot (shared baseline + encrypted token) |
+| `storage.js` | `localStorage` persistence + snapshot/merge, keyed by `id` |
 | `app.js` | List view, grouping, filters, PIN lock, question of the day, wiring |
 | `analytics.js` | SVG charts + stats |
-| `sync.js` | GitHub Contents-API push/pull |
+| `sync.js` | Cloud sync: one Gist auto-resolved by filename, PIN-encrypted token |
 | `fonts/` | Self-hosted Comic Shanns + Comic Shanns Mono |
 
 ## Adding questions
@@ -76,40 +77,50 @@ overrides the seeded date.
 ## The PIN
 
 Editing is locked by default. Click the **🔒 Locked** button and enter the PIN to unlock.
-The PIN is **`6612`**. Change it by editing this line near the top of
-[`app.js`](app.js):
+The PIN is **`6612`**. Only a **SHA-256 hash** of the PIN is stored in code (`PIN_HASH` in
+[`sync.js`](sync.js)) — never the PIN itself. To change it, generate a new hash in the browser
+console and paste it in:
 
 ```js
-const EDIT_PIN = "6612"; // change this to set your own PIN
+await Cloud.sha256Hex("your-new-pin")   // → copy the hex string into PIN_HASH in sync.js
 ```
 
-This is a light client-side gate (it just discourages accidental edits — it is **not** real
-security, since the PIN lives in the JS). The unlocked state is remembered for the browser
-tab/session and clears when you close the tab or click the lock button again.
+This is a light client-side gate (it discourages accidental edits — it is **not** hard security).
+The unlocked state is remembered for the browser tab/session.
 
-## GitHub sync (optional)
+## Progress snapshot (`progress.js`)
 
-Sync keeps a JSON snapshot of your progress in a **private GitHub Gist** so you can move between
-machines. No repo needed.
+[`progress.js`](progress.js) holds a committed `window.PUBLISHED_PROGRESS` snapshot. On load the
+app uses it as the shared **baseline**, so opening the site on any device shows your progress even
+with empty `localStorage`; your local edits then override it. In edit mode, the sync panel's
+**Save snapshot** button downloads a fresh `progress.js` for you to commit.
 
-1. Create a personal access token with just the **`gist`** scope:
-   - Classic token: **Settings → Developer settings → Tokens (classic)**, check only **`gist`**.
-   - (Set a finite expiration rather than "No expiration".)
-2. Click the **☁ sync** button in the app and fill in:
-   - **Token** — pasted PAT (stored **only** in this browser's `localStorage`; never committed)
-   - **Gist ID** — leave **blank** the first time
-   - **Filename** — default `progress.json`
-3. **Push** — the first push creates a new **secret gist** and fills the Gist ID back into the
-   form (copy it / it's saved locally). Later pushes update that same gist.
-4. **Pull** — on another machine, paste the same token **and** the Gist ID, then Pull. It fetches
-   the gist and merges into local storage (remote values win per `id`).
-5. Use **Clear token** to remove the stored token from a machine that isn't yours.
+## Cloud sync — one Gist, all devices (optional)
 
-Notes:
-- The token never leaves your browser except in the `Authorization` header of requests to
-  `api.github.com`. It is not written into any file in this project.
-- The gist is **secret** (not listed publicly), but "secret" gists are still viewable by anyone
-  with the URL — don't put anything truly sensitive in your notes/solutions.
+Sync uses a single private **GitHub Gist** shared across every device. You never enter a Gist ID:
+because the same token/account is used everywhere, the app finds the one gist named
+`sql-tracker-progress.json` automatically (creating it once if absent).
+
+**First device (one-time setup):**
+1. Create a token with just the **`gist`** scope (classic token → check only `gist`; set a finite
+   expiration).
+2. Unlock with your PIN, click the **☁** button → paste the token → **Connect**. The app
+   finds/creates the gist and does a first sync.
+3. It then asks (or uses your unlocked PIN) to **encrypt the token with your PIN**. Click
+   **Save snapshot** and commit the downloaded `progress.js` — it now carries the encrypted token.
+
+**Every other device:** just **unlock with the PIN**. The app decrypts the committed token and
+auto-connects to the same gist — no token, no Gist ID, ever. Edits then push automatically
+(debounced), and each connect pulls + merges (union merge; your stronger local values are kept).
+
+Security notes:
+- The token is **encrypted with your PIN** (PBKDF2 + AES-GCM) before it's written into
+  `progress.js`, so committing that file is safe — the blob is useless without the PIN.
+- The PIN lives only in memory after unlock; it is never stored.
+- The plaintext token is only ever held in this browser's `localStorage` and sent in the
+  `Authorization` header to `api.github.com`.
+- The gist is **secret** but still viewable by anyone with its URL — don't put anything truly
+  sensitive in your notes/solutions.
 
 ## Fonts
 
