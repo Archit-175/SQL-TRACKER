@@ -1,21 +1,80 @@
-// progress.js — published progress snapshot (committed to the repo).
-//
-// On load, the app uses this as the shared baseline, so opening the site on ANY device shows the
-// owner's progress even with empty localStorage. The local working copy (localStorage) then
-// overrides it. Use the edit-mode "Save snapshot" button to download a fresh copy of this file
-// and commit it.
-//
-// Shape (all maps keyed by question id):
-//   status:   { id: "Solved" | "Attempted" }        (Todo values are omitted)
-//   notes:    { id: string }
-//   solution: { id: string }                          (my SQL)
-//   solvedAt: { id: "YYYY-MM-DD" }
-//   cloud:    null | { v, salt, iv, ct }              (PIN-encrypted GitHub token; useless without the PIN)
 window.PUBLISHED_PROGRESS = {
-  app: "sql-tracker",
-  status: {},
-  notes: {},
-  solution: {},
-  solvedAt: {},
-  cloud: null
+  "app": "sql-tracker",
+  "status": {
+    "175": "Solved",
+    "176": "Solved",
+    "177": "Solved",
+    "178": "Solved",
+    "180": "Solved",
+    "181": "Solved",
+    "182": "Solved",
+    "183": "Solved",
+    "184": "Solved",
+    "185": "Solved",
+    "196": "Solved",
+    "197": "Solved",
+    "511": "Solved",
+    "570": "Solved",
+    "577": "Solved",
+    "584": "Solved",
+    "585": "Solved",
+    "586": "Solved",
+    "595": "Solved",
+    "596": "Solved",
+    "601": "Solved",
+    "602": "Solved",
+    "607": "Solved",
+    "608": "Solved",
+    "610": "Solved",
+    "619": "Solved",
+    "620": "Solved",
+    "1045": "Solved",
+    "1050": "Solved",
+    "1068": "Solved",
+    "1741": "Solved",
+    "1757": "Solved",
+    "2356": "Solved"
+  },
+  "notes": {},
+  "solution": {},
+  "solvedAt": {
+    "175": "2026-06-21",
+    "176": "2026-06-22",
+    "177": "2026-06-22",
+    "178": "2026-06-29",
+    "180": "2026-06-29",
+    "181": "2026-06-21",
+    "182": "2026-06-21",
+    "183": "2026-06-22",
+    "184": "2026-06-29",
+    "185": "2026-06-29",
+    "196": "2026-06-30",
+    "197": "2026-06-23",
+    "511": "2026-06-23",
+    "570": "2026-06-30",
+    "577": "2026-06-23",
+    "584": "2026-06-23",
+    "585": "2026-07-01",
+    "586": "2026-07-01",
+    "595": "2026-06-23",
+    "596": "2026-06-23",
+    "601": "2026-07-01",
+    "602": "2026-07-01",
+    "607": "2026-07-01",
+    "608": "2026-07-01",
+    "610": "2026-06-27",
+    "619": "2026-06-28",
+    "620": "2026-07-01",
+    "1045": "2026-07-02",
+    "1050": "2026-07-02",
+    "1068": "2026-07-02",
+    "1741": "2026-07-02",
+    "2356": "2026-07-01"
+  },
+  "cloud": {
+    "v": 1,
+    "salt": "eqbK3N9iW501CJURYVhc6A==",
+    "iv": "QsMD9bDW9lwj80Or",
+    "ct": "wwgKUGYwwPhl/57zMSbdRbyT/9QZYIwH7aE30kzUt4FoCZXTUmiT1gFzN4dW1qYugNNy+5tbsKE="
+  }
 };
