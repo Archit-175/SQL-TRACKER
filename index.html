@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SQL Practice Tracker</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <span class="brand-mark">&lt;/&gt;</span>
+        <span class="brand-name">SQL Tracker</span>
+      </div>
+      <nav class="tabs" id="tabs">
+        <button class="tab is-active" data-view="list">Problems</button>
+        <button class="tab" data-view="analytics">Analytics</button>
+      </nav>
+      <div class="topbar-actions">
+        <button class="icon-btn" id="syncBtn" title="Cloud sync">&#9729;</button>
+        <button class="lock-btn" id="lockBtn" title="Unlock editing">
+          <span class="lock-icon">&#128274;</span>
+          <span class="lock-label">Locked</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- ===================== LIST VIEW ===================== -->
+    <section id="view-list" class="view is-active">
+      <!-- Overall progress -->
+      <div class="progress-card">
+        <div class="progress-head">
+          <div>
+            <div class="progress-title" id="progressTitle">0 of 105 solved</div>
+            <div class="progress-sub" id="progressSub">Keep going!</div>
+          </div>
+          <div class="progress-pct" id="progressPct">0%</div>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+        <div class="diff-counts" id="diffCounts"></div>
+      </div>
+
+      <!-- Question of the day -->
+      <div class="qotd" id="qotd" hidden></div>
+
+      <!-- Controls -->
+      <div class="controls">
+        <input type="search" id="search" class="search" placeholder="Search by id or title…" autocomplete="off" />
+        <div class="control-row">
+          <label class="ctl">
+            <span>Group</span>
+            <select id="groupBy">
+              <option value="difficulty">Difficulty</option>
+              <option value="topic">Topic</option>
+            </select>
+          </label>
+          <label class="ctl">
+            <span>Difficulty</span>
+            <select id="filterDifficulty">
+              <option value="">All</option>
+              <option value="Easy">Easy</option>
+              <option value="Medium">Medium</option>
+              <option value="Hard">Hard</option>
+            </select>
+          </label>
+          <label class="ctl">
+            <span>Topic</span>
+            <select id="filterTopic"><option value="">All</option></select>
+          </label>
+          <label class="ctl">
+            <span>Status</span>
+            <select id="filterStatus">
+              <option value="">All</option>
+              <option value="Todo">Todo</option>
+              <option value="Attempted">Attempted</option>
+              <option value="Solved">Solved</option>
+            </select>
+          </label>
+          <button class="ctl-reset" id="resetFilters" type="button">Reset</button>
+        </div>
+      </div>
+
+      <div id="list" class="list"></div>
+    </section>
+
+    <!-- ===================== ANALYTICS VIEW ===================== -->
+    <section id="view-analytics" class="view">
+      <div id="analytics" class="analytics"></div>
+    </section>
+  </main>
+
+  <!-- ===================== SYNC PANEL ===================== -->
+  <div class="modal-backdrop" id="syncBackdrop" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="syncHeading">
+      <div class="modal-head">
+        <h2 id="syncHeading">GitHub Sync</h2>
+        <button class="icon-btn" id="syncClose" title="Close">&times;</button>
+      </div>
+      <p class="modal-note">
+        Sync your progress to a private GitHub repo. Your token is stored only in this browser's
+        localStorage and is never committed. A fine-grained token with <b>Contents: read/write</b>
+        on a single repo is enough.
+      </p>
+      <div class="field">
+        <label for="ghToken">Personal access token</label>
+        <input type="password" id="ghToken" placeholder="github_pat_… or ghp_…" autocomplete="off" />
+      </div>
+      <div class="field-grid">
+        <div class="field">
+          <label for="ghOwner">Owner</label>
+          <input type="text" id="ghOwner" placeholder="your-username" autocomplete="off" />
+        </div>
+        <div class="field">
+          <label for="ghRepo">Repo</label>
+          <input type="text" id="ghRepo" placeholder="sql-tracker-data" autocomplete="off" />
+        </div>
+      </div>
+      <div class="field-grid">
+        <div class="field">
+          <label for="ghPath">File path</label>
+          <input type="text" id="ghPath" placeholder="progress.json" autocomplete="off" />
+        </div>
+        <div class="field">
+          <label for="ghBranch">Branch</label>
+          <input type="text" id="ghBranch" placeholder="main" autocomplete="off" />
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="ghClear" type="button">Clear token</button>
+        <div class="spacer"></div>
+        <button class="btn" id="ghPull" type="button">Pull</button>
+        <button class="btn btn-accent" id="ghPush" type="button">Push</button>
+      </div>
+      <div class="sync-status" id="syncStatus" aria-live="polite"></div>
+    </div>
+  </div>
+
+  <!-- ===================== PIN PANEL ===================== -->
+  <div class="modal-backdrop" id="pinBackdrop" hidden>
+    <div class="modal modal-sm" role="dialog" aria-modal="true" aria-labelledby="pinHeading">
+      <div class="modal-head">
+        <h2 id="pinHeading">Unlock editing</h2>
+        <button class="icon-btn" id="pinClose" title="Close">&times;</button>
+      </div>
+      <p class="modal-note">Enter your PIN to enable editing status, notes, and solutions.</p>
+      <form id="pinForm">
+        <input type="password" id="pinInput" class="pin-input" inputmode="numeric"
+               placeholder="••••" autocomplete="off" />
+        <div class="pin-error" id="pinError" hidden>Incorrect PIN</div>
+        <div class="modal-actions">
+          <div class="spacer"></div>
+          <button class="btn btn-accent" type="submit">Unlock</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" hidden></div>
+
+  <!-- Scripts: order matters (no modules, works from file://) -->
+  <script src="questions.js"></script>
+  <script src="storage.js"></script>
+  <script src="analytics.js"></script>
+  <script src="sync.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
