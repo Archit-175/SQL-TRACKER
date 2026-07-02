@@ -123,27 +123,37 @@
   function renderPractice() {
     const el = $("#practice");
     el.hidden = false;
-    const five = dailyQuestions(5);
-    if (!five.length) {
-      el.innerHTML = `<div class="practice-head"><div class="practice-title">Daily practice</div>
-        <button class="practice-random" id="practiceRandom" type="button" disabled>🎲 Random</button></div>
-        <div class="practice-empty">Everything is solved — take a victory lap! 🎉</div>`;
+    const unsolved = unsolvedList();
+    if (!unsolved.length) {
+      el.innerHTML = `<div class="practice-card daily-card"><div class="practice-title">Daily practice</div>
+        <div class="practice-empty">Everything is solved — take a victory lap! 🎉</div></div>`;
       return;
     }
+    const five = dailyQuestions(5);
     el.innerHTML = `
-      <div class="practice-head">
-        <div>
-          <div class="practice-title">Daily 5 <span class="practice-date">· ${esc(Store.todayISO())}</span></div>
-          <div class="practice-sub">Your practice set for today — solve one and a new one appears.</div>
+      <div class="practice-card daily-card">
+        <div class="practice-head">
+          <div>
+            <div class="practice-title">Daily 5 <span class="practice-date">· ${esc(Store.todayISO())}</span></div>
+            <div class="practice-sub">Your fixed set for today — solve one and a new one appears.</div>
+          </div>
         </div>
-        <button class="practice-random" id="practiceRandom" type="button">🎲 Random</button>
+        <div class="practice-list">${five.map(practiceRowHTML).join("")}</div>
       </div>
-      <div class="practice-list">${five.map(practiceRowHTML).join("")}</div>`;
+      <div class="practice-card random-card">
+        <div class="random-info">
+          <div class="random-title">🎲 Random practice</div>
+          <div class="practice-sub">Jump to a random unsolved problem — never one of today's Daily 5.</div>
+        </div>
+        <button class="practice-random" id="practiceRandom" type="button">Surprise me →</button>
+      </div>`;
   }
 
-  // Pick a random unsolved question and jump to it in the list.
+  // Pick a random unsolved question that is NOT in today's Daily 5, and jump to it.
   function randomPractice() {
-    const pool = unsolvedList();
+    const daily = new Set(dailyQuestions(5).map((q) => q.id));
+    let pool = unsolvedList().filter((q) => !daily.has(q.id));
+    if (!pool.length) pool = unsolvedList(); // fallback if all remaining unsolved are the Daily 5
     if (!pool.length) { toast("Everything is solved! 🎉", "ok"); return; }
     const q = pool[Math.floor(Math.random() * pool.length)];
     jumpToQuestion(q.id);

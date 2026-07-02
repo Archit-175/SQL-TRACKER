@@ -131,11 +131,18 @@ button { font-family: inherit; cursor: pointer; }
 .diff-count b { font-family: var(--font-mono); }
 
 /* ===================== Daily practice ===================== */
-.practice {
-  margin-top: 16px; padding: 16px 18px;
+.practice { margin-top: 16px; display: grid; gap: 12px; }
+.practice-card {
+  padding: 16px 18px; border-radius: var(--radius);
   background: linear-gradient(135deg, var(--accent-glow), transparent 70%);
-  border: 1px solid var(--accent-dim); border-radius: var(--radius);
+  border: 1px solid var(--accent-dim);
 }
+.random-card {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;
+  background: var(--panel); border-color: var(--border-2);
+}
+.random-info { min-width: 200px; flex: 1; }
+.random-title { font-size: 15px; font-weight: 700; }
 .practice-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .practice-title { font-size: 16px; font-weight: 700; }
 .practice-date { font-family: var(--font-mono); color: var(--text-dim); font-weight: 400; font-size: 13px; }

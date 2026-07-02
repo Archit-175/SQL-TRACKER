@@ -31,8 +31,8 @@ Either:
   a problem **Solved**.
 - **Daily 5** — a deterministic set of 5 unsolved problems for today (seeded by the date);
   solving one drops it and the next in the fixed daily order takes its place.
-- **🎲 Random** — jump to a random unsolved problem: it clears filters, opens that row, and
-  scrolls to and flashes it.
+- **🎲 Random practice** — a separate card that jumps to a random unsolved problem, **never one
+  of today's Daily 5**. It clears filters, opens that row, and scrolls to + flashes it.
 - **Analytics tab** — a GitHub-style activity **heatmap**, solved-over-time line chart,
   breakdowns by difficulty and topic, current streak, total solved, completion %.
   All charts are hand-drawn inline SVG.
