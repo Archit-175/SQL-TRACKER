@@ -37,7 +37,8 @@ Either:
   when the date rolls over or you publish a new `progress.js` (via **Save snapshot**).
 - **Daily 5 speed timer** — hit **▶ Start**, solve all five in one go, and it times you. The timer
   ticks live and **auto-stops when the 5th problem is solved**, showing your total (e.g. `⏱ 12:04`);
-  **↺** resets it. Timing is kept locally per device, per date.
+  **↺** resets it. Your times **sync across devices** (through the same gist) and feed the
+  **Daily 5 speed** chart in Analytics (best time, average, and a per-day trend).
 - **🎲 Random practice** — a separate card that jumps to a random unsolved problem, **never one
   of today's Daily 5**. It clears filters, opens that row, and scrolls to + flashes it.
 - **Analytics tab** — a GitHub-style activity **heatmap**, solved-over-time line chart,

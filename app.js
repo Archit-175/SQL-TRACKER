@@ -121,15 +121,12 @@
   }
 
   // ---- Daily 5 session timer: measure how fast you clear the set ----
-  // Stored per date: { [date]: { startedAt, finishedAt } } (ms epoch). Kept locally on this device.
-  const TIMER_KEY = "sqltracker:timer:v1";
+  // Sessions live in Store (per date: { startedAt, finishedAt }) so they sync across devices.
   let timerTick = null;
-  function loadTimers() { try { return JSON.parse(localStorage.getItem(TIMER_KEY) || "{}"); } catch (e) { return {}; } }
-  function saveTimers(t) { try { localStorage.setItem(TIMER_KEY, JSON.stringify(t)); } catch (e) {} }
-  function todaySession() { return loadTimers()[Store.todayISO()] || null; }
-  function writeSession(s) { const t = loadTimers(); if (s) t[Store.todayISO()] = s; else delete t[Store.todayISO()]; saveTimers(t); }
+  function todaySession() { return Store.getTimer(Store.todayISO()); }
+  function writeSession(s) { Store.setTimer(Store.todayISO(), s); Cloud.schedulePush(); }
   function timerStart() { const s = todaySession(); if (s && s.startedAt && !s.finishedAt) return; writeSession({ startedAt: Date.now(), finishedAt: null }); ensureTick(); }
-  function timerFinish() { const s = todaySession(); if (!s || !s.startedAt || s.finishedAt) return; s.finishedAt = Date.now(); writeSession(s); stopTick(); }
+  function timerFinish() { const s = todaySession(); if (!s || !s.startedAt || s.finishedAt) return; writeSession({ startedAt: s.startedAt, finishedAt: Date.now() }); stopTick(); }
   function timerReset() { writeSession(null); stopTick(); }
   function ensureTick() {
     if (timerTick) return;

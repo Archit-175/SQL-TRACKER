@@ -26,6 +26,44 @@ const Store = (function () {
     }
   }
 
+  // ---- Daily 5 speed-timer sessions, keyed by date: { [date]: { startedAt, finishedAt } } ----
+  const TIMERS_KEY = "sqltracker:timers:v1";
+  let timers = loadTimers();
+  function loadTimers() {
+    try { return JSON.parse(localStorage.getItem(TIMERS_KEY) || "{}"); } catch (e) { return {}; }
+  }
+  function persistTimers() {
+    try { localStorage.setItem(TIMERS_KEY, JSON.stringify(timers)); } catch (e) {}
+  }
+  // Effective timers (local; synced sessions are merged in via mergeRemote/gist).
+  function getTimers() {
+    return Object.assign({}, timers);
+  }
+  function getTimer(date) {
+    return getTimers()[date] || null;
+  }
+  function setTimer(date, session) {
+    if (session) timers[date] = session; else delete timers[date];
+    persistTimers();
+  }
+  // Merge remote timer sessions: prefer a finished session, else the one that started earliest.
+  function mergeTimers(remote) {
+    if (!remote || typeof remote !== "object") return false;
+    let changed = false;
+    Object.keys(remote).forEach((date) => {
+      const r = remote[date];
+      if (!r || !r.startedAt) return;
+      const l = timers[date];
+      let take = false;
+      if (!l) take = true;
+      else if (!l.finishedAt && r.finishedAt) take = true;
+      else if (!!l.finishedAt === !!r.finishedAt && r.startedAt < l.startedAt) take = true;
+      if (take) { timers[date] = r; changed = true; }
+    });
+    if (changed) persistTimers();
+    return changed;
+  }
+
   // Default record for a question: `done:true` seeds "Solved" and its known solve date (if any).
   function defaultRecord(q) {
     const seededDate = (typeof SOLVED_DATES !== "undefined" && SOLVED_DATES[q.id]) || null;
@@ -67,7 +105,7 @@ const Store = (function () {
       if (r.solution) solution[q.id] = r.solution;
       if (r.dateSolved) solvedAt[q.id] = r.dateSolved;
     });
-    return { app: "sql-tracker", status, notes, solution, solvedAt };
+    return { app: "sql-tracker", status, notes, solution, solvedAt, timers: getTimers() };
   }
 
   // Union-merge remote snapshot into local; never clobber a stronger/non-empty local value.
@@ -92,7 +130,8 @@ const Store = (function () {
       if (remote.solution[id] && !get(q).solution) { ensure(id).solution = remote.solution[id]; changed = true; }
     });
     if (changed) persist();
-    return changed;
+    const timersChanged = mergeTimers(remote.timers);
+    return changed || timersChanged;
   }
 
   function todayISO() {
@@ -135,5 +174,5 @@ const Store = (function () {
     persist();
   }
 
-  return { get, set, merge, exportAll, replaceAll, todayISO, buildSnapshot, mergeRemote };
+  return { get, set, merge, exportAll, replaceAll, todayISO, buildSnapshot, mergeRemote, getTimers, getTimer, setTimer };
 })();

@@ -239,6 +239,53 @@ const Analytics = (function () {
     const [y, m, d] = iso.split("-");
     return `${m}/${d}/${y.slice(2)}`;
   }
+  function fmtTime(sec) {
+    sec = Math.max(0, Math.round(sec));
+    const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+    return h ? `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}` : `${m}:${String(s).padStart(2, "0")}`;
+  }
+
+  // Completed Daily 5 runs → [{ date, sec }] sorted by date.
+  function dailyTimes() {
+    const t = (Store.getTimers && Store.getTimers()) || {};
+    return Object.keys(t)
+      .filter((d) => t[d] && t[d].startedAt && t[d].finishedAt && t[d].finishedAt > t[d].startedAt)
+      .sort()
+      .map((d) => ({ date: d, sec: Math.round((t[d].finishedAt - t[d].startedAt) / 1000) }));
+  }
+
+  // Vertical bar chart of Daily 5 completion time per day (y-axis in mm:ss).
+  function timesChart(entries) {
+    if (!entries.length) return emptyChart("No timed Daily 5 runs yet — press ▶ Start on the Daily 5 and solve all five.");
+    const W = 640, H = 240, PAD_L = 46, PAD_R = 12, PAD_T = 14, PAD_B = 32;
+    const plotW = W - PAD_L - PAD_R, plotH = H - PAD_T - PAD_B;
+    const maxV = Math.max(1, ...entries.map((e) => e.sec));
+    const slot = plotW / entries.length;
+    const barW = Math.max(6, Math.min(34, slot * 0.6));
+    const baseY = PAD_T + plotH;
+    const y = (v) => PAD_T + plotH - (v / maxV) * plotH;
+
+    const ticks = niceTicks(maxV, 4);
+    let grid = "";
+    ticks.forEach((tv) => {
+      const yy = y(tv).toFixed(1);
+      grid += `<line x1="${PAD_L}" y1="${yy}" x2="${W - PAD_R}" y2="${yy}" stroke="var(--border)" stroke-width="1"/>`;
+      grid += `<text x="${PAD_L - 6}" y="${yy}" text-anchor="end" dominant-baseline="middle" fill="var(--text-faint)" font-size="10" font-family="var(--font-mono)">${fmtTime(tv)}</text>`;
+    });
+
+    const labelEvery = Math.ceil(entries.length / 8);
+    let bars = "", xlabels = "";
+    entries.forEach((e, i) => {
+      const cx = PAD_L + i * slot + slot / 2;
+      const x = cx - barW / 2;
+      const h = baseY - y(e.sec);
+      bars += `<rect x="${x.toFixed(1)}" y="${y(e.sec).toFixed(1)}" width="${barW.toFixed(1)}" height="${h.toFixed(1)}" rx="3" fill="var(--accent)"><title>${e.date}: ${fmtTime(e.sec)}</title></rect>`;
+      if (i % labelEvery === 0 || i === entries.length - 1) {
+        xlabels += `<text x="${cx.toFixed(1)}" y="${H - 10}" text-anchor="middle" fill="var(--text-faint)" font-size="10" font-family="var(--font-mono)">${shortDate(e.date)}</text>`;
+      }
+    });
+    return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Daily 5 completion times">${grid}${bars}${xlabels}</svg>`;
+  }
 
   function render(container) {
     const recs = records();
@@ -266,6 +313,13 @@ const Analytics = (function () {
 
     const heat = heatmap(s.dates);
 
+    const times = dailyTimes();
+    const best = times.length ? Math.min(...times.map((t) => t.sec)) : null;
+    const avg = times.length ? Math.round(times.reduce((a, t) => a + t.sec, 0) / times.length) : null;
+    const timesSub = times.length
+      ? `· best ${fmtTime(best)}, avg ${fmtTime(avg)} over ${times.length} day${times.length > 1 ? "s" : ""}`
+      : "· no timed runs yet";
+
     container.innerHTML = `
       <div class="stat-row">
         <div class="stat"><div class="stat-num">${s.solvedCount}</div><div class="stat-label">Total solved</div></div>
@@ -279,6 +333,10 @@ const Analytics = (function () {
       <div class="chart-card">
         <h3>Daily progress <span style="color:var(--text-faint);font-weight:400;font-size:13px">· problems solved per day</span></h3>
         ${dailyChart(s.dates)}
+      </div>
+      <div class="chart-card">
+        <h3>Daily 5 speed <span style="color:var(--text-faint);font-weight:400;font-size:13px">${timesSub}</span></h3>
+        ${timesChart(times)}
       </div>
       <div class="chart-card">
         <h3>By difficulty</h3>
