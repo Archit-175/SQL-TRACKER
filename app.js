@@ -98,26 +98,28 @@
     };
   }
 
-  // Daily 5 = a deterministic pick of 5 problems for today that is IDENTICAL on every device.
-  // "Already solved" is read from the shared published snapshot (progress.js) + seed data — both the
-  // same everywhere — so the pick is a pure function of the date and shared state, needing no local
-  // persistence. It's therefore frozen against your live same-day solving (a Daily-5 item you solve
-  // today stays, shown as done); it only shifts when you publish a new progress.js or the date rolls.
-  function publishedSolvedIds() {
-    const set = new Set();
-    const st = (window.PUBLISHED_PROGRESS && window.PUBLISHED_PROGRESS.status) || {};
-    Object.keys(st).forEach((id) => { if (st[id] === "Solved") set.add(Number(id)); });
-    return set;
-  }
-  function dailyQuestions() {
-    const solved = publishedSolvedIds();
+  // Daily 5 is chosen ONCE per day from your live, currently-untouched (Todo) problems — so it never
+  // includes anything you've already solved — then FROZEN by storing the chosen ids in the synced
+  // store. That frozen set is shared through the gist, so every device shows the same Daily 5, and
+  // solving one today keeps it in the set (shown as done) instead of reshuffling.
+  function getDailySetIds() {
+    const today = Store.todayISO();
+    const saved = Store.getDailySet(today);
+    if (saved && saved.length) return saved;
+    // First view of the day on any device: pick 5 untouched problems in a date-seeded order.
     const order = QUESTIONS.slice();
-    const rnd = mulberry32(hashStr(Store.todayISO()));
+    const rnd = mulberry32(hashStr(today));
     for (let i = order.length - 1; i > 0; i--) {
       const j = Math.floor(rnd() * (i + 1));
       const t = order[i]; order[i] = order[j]; order[j] = t;
     }
-    return order.filter((q) => !q.done && !solved.has(q.id)).slice(0, 5);
+    const ids = order.filter((q) => recordFor(q).status === "Todo").slice(0, 5).map((q) => q.id);
+    Store.setDailySet(today, ids);
+    Cloud.schedulePush(); // sync the pick so other devices use the same set
+    return ids;
+  }
+  function dailyQuestions() {
+    return getDailySetIds().map((id) => findQ(id)).filter(Boolean);
   }
 
   // ---- Daily 5 session timer: measure how fast you clear the set ----

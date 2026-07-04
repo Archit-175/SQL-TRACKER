@@ -29,12 +29,11 @@ Either:
 - **Per-question tracking**: status (Todo / Attempted / Solved), free-text notes, and a
   monospace SQL-solution editor. Date solved is set automatically the first time you mark
   a problem **Solved**.
-- **Daily 5** — 5 problems for today, **identical on every device**: the pick is a pure function of
-  the date and the shared published snapshot (`progress.js`), so no device drifts. It excludes
-  problems already solved as of the last published snapshot, and is **frozen** against your live
-  same-day solving — a Daily-5 problem you solve today stays in the set, shown as ✓ done, with an
-  "X/5 solved" counter. Each row has a **✓ Solve** button (unlock required). The set shifts only
-  when the date rolls over or you publish a new `progress.js` (via **Save snapshot**).
+- **Daily 5** — 5 of your **currently-unsolved** (Todo) problems, chosen once per day and then
+  **frozen**: it never includes anything you've already solved, and solving one today keeps it in
+  the set (shown as ✓ done, with an "X/5 solved" counter) instead of reshuffling. The chosen set is
+  **synced through the gist**, so every device shows the same Daily 5. Each row has a **✓ Solve**
+  button (unlock required). Recomputed when the date rolls over.
 - **Daily 5 speed timer** — hit **▶ Start**, solve as many as you want, then **■ Stop** to record
   your time and how many you finished (it also auto-stops if you clear all 5). Shows e.g.
   `⏱ 1:08:13 · 3 solved`; **↺** resets. Times **sync across devices** (through the same gist) and

@@ -64,6 +64,36 @@ const Store = (function () {
     return changed;
   }
 
+  // ---- Frozen Daily 5 selection, keyed by date: { [date]: [ids] } (synced so all devices match) ----
+  const DAILYSETS_KEY = "sqltracker:dailysets:v1";
+  let dailySets = loadDailySets();
+  function loadDailySets() {
+    try { return JSON.parse(localStorage.getItem(DAILYSETS_KEY) || "{}"); } catch (e) { return {}; }
+  }
+  function persistDailySets() {
+    try { localStorage.setItem(DAILYSETS_KEY, JSON.stringify(dailySets)); } catch (e) {}
+  }
+  function getDailySet(date) {
+    const v = dailySets[date];
+    return Array.isArray(v) && v.length ? v.slice() : null;
+  }
+  function setDailySet(date, ids) {
+    if (Array.isArray(ids) && ids.length) dailySets[date] = ids.slice(); else delete dailySets[date];
+    persistDailySets();
+  }
+  // Merge remote daily-set picks (remote wins per date, so devices converge on one shared set).
+  function mergeDailySets(remote) {
+    if (!remote || typeof remote !== "object") return false;
+    let changed = false;
+    Object.keys(remote).forEach((date) => {
+      const r = remote[date];
+      if (!Array.isArray(r) || !r.length) return;
+      if (JSON.stringify(dailySets[date]) !== JSON.stringify(r)) { dailySets[date] = r.slice(); changed = true; }
+    });
+    if (changed) persistDailySets();
+    return changed;
+  }
+
   // Default record for a question: `done:true` seeds "Solved" and its known solve date (if any).
   function defaultRecord(q) {
     const seededDate = (typeof SOLVED_DATES !== "undefined" && SOLVED_DATES[q.id]) || null;
@@ -105,7 +135,7 @@ const Store = (function () {
       if (r.solution) solution[q.id] = r.solution;
       if (r.dateSolved) solvedAt[q.id] = r.dateSolved;
     });
-    return { app: "sql-tracker", status, notes, solution, solvedAt, timers: getTimers() };
+    return { app: "sql-tracker", status, notes, solution, solvedAt, timers: getTimers(), dailySets: Object.assign({}, dailySets) };
   }
 
   // Union-merge remote snapshot into local; never clobber a stronger/non-empty local value.
@@ -131,7 +161,8 @@ const Store = (function () {
     });
     if (changed) persist();
     const timersChanged = mergeTimers(remote.timers);
-    return changed || timersChanged;
+    const setsChanged = mergeDailySets(remote.dailySets);
+    return changed || timersChanged || setsChanged;
   }
 
   function todayISO() {
@@ -174,5 +205,5 @@ const Store = (function () {
     persist();
   }
 
-  return { get, set, merge, exportAll, replaceAll, todayISO, buildSnapshot, mergeRemote, getTimers, getTimer, setTimer };
+  return { get, set, merge, exportAll, replaceAll, todayISO, buildSnapshot, mergeRemote, getTimers, getTimer, setTimer, getDailySet, setDailySet };
 })();
