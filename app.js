@@ -120,6 +120,57 @@
     return order.filter((q) => !q.done && !solved.has(q.id)).slice(0, 5);
   }
 
+  // ---- Daily 5 session timer: measure how fast you clear the set ----
+  // Stored per date: { [date]: { startedAt, finishedAt } } (ms epoch). Kept locally on this device.
+  const TIMER_KEY = "sqltracker:timer:v1";
+  let timerTick = null;
+  function loadTimers() { try { return JSON.parse(localStorage.getItem(TIMER_KEY) || "{}"); } catch (e) { return {}; } }
+  function saveTimers(t) { try { localStorage.setItem(TIMER_KEY, JSON.stringify(t)); } catch (e) {} }
+  function todaySession() { return loadTimers()[Store.todayISO()] || null; }
+  function writeSession(s) { const t = loadTimers(); if (s) t[Store.todayISO()] = s; else delete t[Store.todayISO()]; saveTimers(t); }
+  function timerStart() { const s = todaySession(); if (s && s.startedAt && !s.finishedAt) return; writeSession({ startedAt: Date.now(), finishedAt: null }); ensureTick(); }
+  function timerFinish() { const s = todaySession(); if (!s || !s.startedAt || s.finishedAt) return; s.finishedAt = Date.now(); writeSession(s); stopTick(); }
+  function timerReset() { writeSession(null); stopTick(); }
+  function ensureTick() {
+    if (timerTick) return;
+    timerTick = setInterval(() => {
+      const s = todaySession();
+      if (!s || !s.startedAt || s.finishedAt) { stopTick(); return; }
+      const el = document.getElementById("dailyTimer");
+      if (el) el.textContent = fmtDuration(Date.now() - s.startedAt);
+    }, 1000);
+  }
+  function stopTick() { if (timerTick) { clearInterval(timerTick); timerTick = null; } }
+  function fmtDuration(ms) {
+    const total = Math.max(0, Math.floor(ms / 1000));
+    const h = Math.floor(total / 3600), m = Math.floor((total % 3600) / 60), s = total % 60;
+    return h ? `${h}h ${String(m).padStart(2, "0")}m` : `${m}:${String(s).padStart(2, "0")}`;
+  }
+  // Auto start (on first Daily-5 solve) and auto finish (when all 5 are solved).
+  function updateDailyTimer(solvedId) {
+    const five = dailyQuestions();
+    const inDaily = solvedId != null && five.some((q) => String(q.id) === String(solvedId));
+    if (inDaily && !todaySession()) timerStart();
+    const done = five.filter((q) => recordFor(q).status === "Solved").length;
+    if (five.length && done >= five.length) timerFinish();
+  }
+  function timerHTML() {
+    const s = todaySession();
+    if (s && s.finishedAt) {
+      return `<div class="daily-timer">
+        <span class="timer-done">⏱ ${fmtDuration(s.finishedAt - s.startedAt)}</span>
+        <button class="timer-reset" id="dailyReset" type="button" title="Reset timer">↺</button></div>`;
+    }
+    if (s && s.startedAt) {
+      return `<div class="daily-timer">
+        <span class="timer-run">⏱ <span id="dailyTimer">${fmtDuration(Date.now() - s.startedAt)}</span></span>
+        <button class="timer-reset" id="dailyReset" type="button" title="Reset timer">↺</button></div>`;
+    }
+    const five = dailyQuestions();
+    if (five.length && five.every((q) => recordFor(q).status === "Solved")) return ""; // already all done, untimed
+    return `<div class="daily-timer"><button class="timer-start" id="dailyStart" type="button">▶ Start</button></div>`;
+  }
+
   function practiceRowHTML(q) {
     const solved = recordFor(q).status === "Solved";
     const action = solved
@@ -144,10 +195,13 @@
 
     const dailyCard = five.length
       ? `<div class="practice-card daily-card">
-          <div class="practice-head"><div>
-            <div class="practice-title">Daily 5 <span class="practice-date">· ${esc(Store.todayISO())}</span></div>
-            <div class="practice-sub">Your fixed set for today — <b>${done}/${five.length} solved</b>.</div>
-          </div></div>
+          <div class="practice-head">
+            <div>
+              <div class="practice-title">Daily 5 <span class="practice-date">· ${esc(Store.todayISO())}</span></div>
+              <div class="practice-sub">Your fixed set for today — <b>${done}/${five.length} solved</b>.</div>
+            </div>
+            ${timerHTML()}
+          </div>
           <div class="practice-list">${five.map(practiceRowHTML).join("")}</div>
         </div>`
       : `<div class="practice-card daily-card">
@@ -166,6 +220,8 @@
       : "";
 
     el.innerHTML = dailyCard + randomCard;
+    const s = todaySession();
+    if (s && s.startedAt && !s.finishedAt) ensureTick(); // resume live ticking after any re-render
   }
 
   // Mark a Daily 5 problem Solved directly from the practice panel (requires unlock).
@@ -174,10 +230,13 @@
     const q = findQ(id);
     if (!q) return;
     Store.set(q, { status: "Solved" });
-    refreshSummaries();               // re-render practice (row shows Solved ✓) + progress
+    updateDailyTimer(id);             // auto-start (first solve) / auto-finish (all 5 done)
+    refreshSummaries();               // re-render practice (row shows Solved ✓ + timer) + progress
     if (state.view === "list") renderList();
     Cloud.schedulePush();
-    toast(`Solved #${q.id} 🎉`, "ok");
+    const s = todaySession();
+    const finishedMsg = s && s.finishedAt ? ` · Daily 5 done in ${fmtDuration(s.finishedAt - s.startedAt)} ⏱` : "";
+    toast(`Solved #${q.id} 🎉${finishedMsg}`, "ok");
   }
 
   // Pick a random unsolved question that is NOT in today's Daily 5, and jump to it.
@@ -353,9 +412,11 @@
       activateView(tab.dataset.view);
     });
 
-    // Practice panel: random button + mark-solved + jump-to-question rows
+    // Practice panel: timer + random button + mark-solved + jump-to-question rows
     $("#practice").addEventListener("click", (e) => {
       if (e.target.closest("#practiceRandom")) { randomPractice(); return; }
+      if (e.target.closest("#dailyStart")) { timerStart(); renderPractice(); return; }
+      if (e.target.closest("#dailyReset")) { timerReset(); renderPractice(); return; }
       const solve = e.target.closest("[data-solve]");
       if (solve) { markSolvedFromPractice(solve.getAttribute("data-solve")); return; }
       if (e.target.closest(".prow-link")) return; // let the LeetCode link work normally
@@ -412,6 +473,7 @@
         meta.innerHTML = r.dateSolved ? `Solved on <span class="solved-date">${esc(r.dateSolved)}</span>` : "Not solved yet";
         // Update this group's count.
         updateGroupCount(st.closest(".group"));
+        updateDailyTimer(st.value === "Solved" ? st.dataset.status : null); // drive Daily 5 timer
         refreshSummaries();
         Cloud.schedulePush();
       }

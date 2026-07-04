@@ -144,6 +144,23 @@ button { font-family: inherit; cursor: pointer; }
 .random-info { min-width: 200px; flex: 1; }
 .random-title { font-size: 15px; font-weight: 700; }
 .practice-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.daily-timer { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.timer-start {
+  background: var(--accent); color: #062a17; font-weight: 700;
+  border: none; padding: 7px 14px; border-radius: 8px; font-size: 13px; transition: filter .15s;
+}
+.timer-start:hover { filter: brightness(1.08); }
+.timer-run, .timer-done {
+  font-family: var(--font-mono); font-weight: 700; font-size: 15px;
+  padding: 5px 10px; border-radius: 8px; border: 1px solid var(--border-2); background: var(--bg-2);
+}
+.timer-run { color: var(--medium); }
+.timer-done { color: var(--accent); border-color: var(--accent-dim); }
+.timer-reset {
+  background: transparent; border: 1px solid var(--border); color: var(--text-dim);
+  width: 30px; height: 30px; border-radius: 8px; font-size: 15px; line-height: 1;
+}
+.timer-reset:hover { color: var(--text); border-color: var(--border-2); }
 .practice-title { font-size: 16px; font-weight: 700; }
 .practice-date { font-family: var(--font-mono); color: var(--text-dim); font-weight: 400; font-size: 13px; }
 .practice-sub { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
