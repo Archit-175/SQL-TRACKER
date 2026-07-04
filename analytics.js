@@ -251,7 +251,7 @@ const Analytics = (function () {
     return Object.keys(t)
       .filter((d) => t[d] && t[d].startedAt && t[d].finishedAt && t[d].finishedAt > t[d].startedAt)
       .sort()
-      .map((d) => ({ date: d, sec: Math.round((t[d].finishedAt - t[d].startedAt) / 1000) }));
+      .map((d) => ({ date: d, sec: Math.round((t[d].finishedAt - t[d].startedAt) / 1000), solved: t[d].solved }));
   }
 
   // Vertical bar chart of Daily 5 completion time per day (y-axis in mm:ss).
@@ -279,7 +279,8 @@ const Analytics = (function () {
       const cx = PAD_L + i * slot + slot / 2;
       const x = cx - barW / 2;
       const h = baseY - y(e.sec);
-      bars += `<rect x="${x.toFixed(1)}" y="${y(e.sec).toFixed(1)}" width="${barW.toFixed(1)}" height="${h.toFixed(1)}" rx="3" fill="var(--accent)"><title>${e.date}: ${fmtTime(e.sec)}</title></rect>`;
+      const cnt = e.solved != null ? ` · ${e.solved} solved` : "";
+      bars += `<rect x="${x.toFixed(1)}" y="${y(e.sec).toFixed(1)}" width="${barW.toFixed(1)}" height="${h.toFixed(1)}" rx="3" fill="var(--accent)"><title>${e.date}: ${fmtTime(e.sec)}${cnt}</title></rect>`;
       if (i % labelEvery === 0 || i === entries.length - 1) {
         xlabels += `<text x="${cx.toFixed(1)}" y="${H - 10}" text-anchor="middle" fill="var(--text-faint)" font-size="10" font-family="var(--font-mono)">${shortDate(e.date)}</text>`;
       }

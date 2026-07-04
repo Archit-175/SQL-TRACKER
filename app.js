@@ -126,7 +126,15 @@
   function todaySession() { return Store.getTimer(Store.todayISO()); }
   function writeSession(s) { Store.setTimer(Store.todayISO(), s); Cloud.schedulePush(); }
   function timerStart() { const s = todaySession(); if (s && s.startedAt && !s.finishedAt) return; writeSession({ startedAt: Date.now(), finishedAt: null }); ensureTick(); }
-  function timerFinish() { const s = todaySession(); if (!s || !s.startedAt || s.finishedAt) return; writeSession({ startedAt: s.startedAt, finishedAt: Date.now() }); stopTick(); }
+  // Finish the run (manual Stop, or auto when all 5 are done). Records how many of the Daily 5
+  // were solved by the time it stopped.
+  function timerFinish() {
+    const s = todaySession();
+    if (!s || !s.startedAt || s.finishedAt) return;
+    const solved = dailyQuestions().filter((q) => recordFor(q).status === "Solved").length;
+    writeSession({ startedAt: s.startedAt, finishedAt: Date.now(), solved });
+    stopTick();
+  }
   function timerReset() { writeSession(null); stopTick(); }
   function ensureTick() {
     if (timerTick) return;
@@ -141,7 +149,9 @@
   function fmtDuration(ms) {
     const total = Math.max(0, Math.floor(ms / 1000));
     const h = Math.floor(total / 3600), m = Math.floor((total % 3600) / 60), s = total % 60;
-    return h ? `${h}h ${String(m).padStart(2, "0")}m` : `${m}:${String(s).padStart(2, "0")}`;
+    return h
+      ? `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
+      : `${m}:${String(s).padStart(2, "0")}`;
   }
   // Auto start (on first Daily-5 solve) and auto finish (when all 5 are solved).
   function updateDailyTimer(solvedId) {
@@ -154,13 +164,15 @@
   function timerHTML() {
     const s = todaySession();
     if (s && s.finishedAt) {
+      const cnt = s.solved != null ? ` · ${s.solved} solved` : "";
       return `<div class="daily-timer">
-        <span class="timer-done">⏱ ${fmtDuration(s.finishedAt - s.startedAt)}</span>
+        <span class="timer-done">⏱ ${fmtDuration(s.finishedAt - s.startedAt)}${cnt}</span>
         <button class="timer-reset" id="dailyReset" type="button" title="Reset timer">↺</button></div>`;
     }
     if (s && s.startedAt) {
       return `<div class="daily-timer">
         <span class="timer-run">⏱ <span id="dailyTimer">${fmtDuration(Date.now() - s.startedAt)}</span></span>
+        <button class="timer-stop" id="dailyStop" type="button" title="Stop &amp; record">■ Stop</button>
         <button class="timer-reset" id="dailyReset" type="button" title="Reset timer">↺</button></div>`;
     }
     const five = dailyQuestions();
@@ -413,6 +425,14 @@
     $("#practice").addEventListener("click", (e) => {
       if (e.target.closest("#practiceRandom")) { randomPractice(); return; }
       if (e.target.closest("#dailyStart")) { timerStart(); renderPractice(); return; }
+      if (e.target.closest("#dailyStop")) {
+        const before = todaySession();
+        timerFinish();
+        renderPractice();
+        const s = todaySession();
+        if (s && s.finishedAt && before) toast(`Recorded ${fmtDuration(s.finishedAt - s.startedAt)} · ${s.solved} solved ⏱`, "ok");
+        return;
+      }
       if (e.target.closest("#dailyReset")) { timerReset(); renderPractice(); return; }
       const solve = e.target.closest("[data-solve]");
       if (solve) { markSolvedFromPractice(solve.getAttribute("data-solve")); return; }

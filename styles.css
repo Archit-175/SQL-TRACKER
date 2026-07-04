@@ -156,6 +156,11 @@ button { font-family: inherit; cursor: pointer; }
 }
 .timer-run { color: var(--medium); }
 .timer-done { color: var(--accent); border-color: var(--accent-dim); }
+.timer-stop {
+  background: transparent; border: 1px solid var(--medium); color: var(--medium);
+  font-weight: 700; font-size: 13px; padding: 6px 12px; border-radius: 8px;
+}
+.timer-stop:hover { background: var(--medium); color: #2a1c00; }
 .timer-reset {
   background: transparent; border: 1px solid var(--border); color: var(--text-dim);
   width: 30px; height: 30px; border-radius: 8px; font-size: 15px; line-height: 1;

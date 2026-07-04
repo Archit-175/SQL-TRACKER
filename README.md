@@ -35,10 +35,10 @@ Either:
   same-day solving — a Daily-5 problem you solve today stays in the set, shown as ✓ done, with an
   "X/5 solved" counter. Each row has a **✓ Solve** button (unlock required). The set shifts only
   when the date rolls over or you publish a new `progress.js` (via **Save snapshot**).
-- **Daily 5 speed timer** — hit **▶ Start**, solve all five in one go, and it times you. The timer
-  ticks live and **auto-stops when the 5th problem is solved**, showing your total (e.g. `⏱ 12:04`);
-  **↺** resets it. Your times **sync across devices** (through the same gist) and feed the
-  **Daily 5 speed** chart in Analytics (best time, average, and a per-day trend).
+- **Daily 5 speed timer** — hit **▶ Start**, solve as many as you want, then **■ Stop** to record
+  your time and how many you finished (it also auto-stops if you clear all 5). Shows e.g.
+  `⏱ 1:08:13 · 3 solved`; **↺** resets. Times **sync across devices** (through the same gist) and
+  feed the **Daily 5 speed** chart in Analytics (best, average, and a per-day trend, count on hover).
 - **🎲 Random practice** — a separate card that jumps to a random unsolved problem, **never one
   of today's Daily 5**. It clears filters, opens that row, and scrolls to + flashes it.
 - **Analytics tab** — a GitHub-style activity **heatmap**, solved-over-time line chart,
