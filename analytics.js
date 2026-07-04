@@ -249,9 +249,14 @@ const Analytics = (function () {
   function dailyTimes() {
     const t = (Store.getTimers && Store.getTimers()) || {};
     return Object.keys(t)
-      .filter((d) => t[d] && t[d].startedAt && t[d].finishedAt && t[d].finishedAt > t[d].startedAt)
-      .sort()
-      .map((d) => ({ date: d, sec: Math.round((t[d].finishedAt - t[d].startedAt) / 1000), solved: t[d].solved }));
+      .filter((d) => t[d] && t[d].startedAt && t[d].finishedAt)
+      .map((d) => {
+        const s = t[d];
+        const ms = s.elapsedMs != null ? s.elapsedMs : (s.finishedAt - s.startedAt);
+        return { date: d, sec: Math.round(ms / 1000), solved: s.solved };
+      })
+      .filter((e) => e.sec > 0)
+      .sort((a, b) => (a.date < b.date ? -1 : 1));
   }
 
   // Vertical bar chart of Daily 5 completion time per day (y-axis in mm:ss).

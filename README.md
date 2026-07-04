@@ -34,10 +34,11 @@ Either:
   the set (shown as ✓ done, with an "X/5 solved" counter) instead of reshuffling. The chosen set is
   **synced through the gist**, so every device shows the same Daily 5. Each row has a **✓ Solve**
   button (unlock required). Recomputed when the date rolls over.
-- **Daily 5 speed timer** — hit **▶ Start**, solve as many as you want, then **■ Stop** to record
-  your time and how many you finished (it also auto-stops if you clear all 5). Shows e.g.
-  `⏱ 1:08:13 · 3 solved`; **↺** resets. Times **sync across devices** (through the same gist) and
-  feed the **Daily 5 speed** chart in Analytics (best, average, and a per-day trend, count on hover).
+- **Daily 5 speed timer** — hit **▶ Start**, **⏸ Pause** / **▶ Resume** whenever you need a break
+  (only active time counts), then **■ Stop** to record your time and how many you finished (it also
+  auto-stops if you clear all 5). Shows e.g. `⏱ 1:08:13 · 3 solved`; **↺** resets. Times **sync
+  across devices** (through the same gist) and feed the **Daily 5 speed** chart in Analytics (best,
+  average, and a per-day trend, count on hover).
 - **🎲 Random practice** — a separate card that jumps to a random unsolved problem, **never one
   of today's Daily 5**. It clears filters, opens that row, and scrolls to + flashes it.
 - **Analytics tab** — a GitHub-style activity **heatmap**, solved-over-time line chart,

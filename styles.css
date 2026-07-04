@@ -156,6 +156,14 @@ button { font-family: inherit; cursor: pointer; }
 }
 .timer-run { color: var(--medium); }
 .timer-done { color: var(--accent); border-color: var(--accent-dim); }
+.timer-run.paused { opacity: 0.6; }
+.timer-pause, .timer-resume {
+  background: transparent; border: 1px solid var(--border-2); color: var(--text-dim);
+  font-weight: 700; font-size: 13px; padding: 6px 12px; border-radius: 8px; white-space: nowrap;
+}
+.timer-pause:hover, .timer-resume:hover { color: var(--text); border-color: var(--text-faint); }
+.timer-resume { color: var(--accent); border-color: var(--accent-dim); }
+.timer-resume:hover { background: var(--accent); color: #062a17; }
 .timer-stop {
   background: transparent; border: 1px solid var(--medium); color: var(--medium);
   font-weight: 700; font-size: 13px; padding: 6px 12px; border-radius: 8px;

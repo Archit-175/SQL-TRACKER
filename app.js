@@ -124,17 +124,43 @@
 
   // ---- Daily 5 session timer: measure how fast you clear the set ----
   // Sessions live in Store (per date: { startedAt, finishedAt }) so they sync across devices.
+  // Session model: { startedAt, accumulatedMs, runningSince, finishedAt, elapsedMs, solved }.
+  // Active time = accumulatedMs + (runningSince ? now - runningSince : 0). Pausing folds the current
+  // running segment into accumulatedMs and clears runningSince; resuming sets runningSince = now.
   let timerTick = null;
   function todaySession() { return Store.getTimer(Store.todayISO()); }
   function writeSession(s) { Store.setTimer(Store.todayISO(), s); Cloud.schedulePush(); }
-  function timerStart() { const s = todaySession(); if (s && s.startedAt && !s.finishedAt) return; writeSession({ startedAt: Date.now(), finishedAt: null }); ensureTick(); }
-  // Finish the run (manual Stop, or auto when all 5 are done). Records how many of the Daily 5
-  // were solved by the time it stopped.
+  function sessionElapsed(s) {
+    if (!s) return 0;
+    if (s.finishedAt != null) return s.elapsedMs != null ? s.elapsedMs : (s.finishedAt - s.startedAt);
+    return (s.accumulatedMs || 0) + (s.runningSince ? Date.now() - s.runningSince : 0);
+  }
+  function isRunning(s) { return !!(s && s.startedAt && !s.finishedAt && s.runningSince); }
+  function timerStart() {
+    const s = todaySession();
+    if (s && s.startedAt && !s.finishedAt) return; // already started (running or paused)
+    const now = Date.now();
+    writeSession({ startedAt: now, accumulatedMs: 0, runningSince: now, finishedAt: null });
+    ensureTick();
+  }
+  function timerPause() {
+    const s = todaySession();
+    if (!isRunning(s)) return;
+    writeSession({ ...s, accumulatedMs: (s.accumulatedMs || 0) + (Date.now() - s.runningSince), runningSince: null });
+    stopTick();
+  }
+  function timerResume() {
+    const s = todaySession();
+    if (!s || s.finishedAt || s.runningSince) return; // must be paused
+    writeSession({ ...s, runningSince: Date.now() });
+    ensureTick();
+  }
+  // Finish the run (manual Stop, or auto when all 5 are done). Records total active time + count.
   function timerFinish() {
     const s = todaySession();
     if (!s || !s.startedAt || s.finishedAt) return;
     const solved = dailyQuestions().filter((q) => recordFor(q).status === "Solved").length;
-    writeSession({ startedAt: s.startedAt, finishedAt: Date.now(), solved });
+    writeSession({ ...s, runningSince: null, finishedAt: Date.now(), elapsedMs: sessionElapsed(s), solved });
     stopTick();
   }
   function timerReset() { writeSession(null); stopTick(); }
@@ -142,9 +168,9 @@
     if (timerTick) return;
     timerTick = setInterval(() => {
       const s = todaySession();
-      if (!s || !s.startedAt || s.finishedAt) { stopTick(); return; }
+      if (!isRunning(s)) { stopTick(); return; }
       const el = document.getElementById("dailyTimer");
-      if (el) el.textContent = fmtDuration(Date.now() - s.startedAt);
+      if (el) el.textContent = fmtDuration(sessionElapsed(s));
     }, 1000);
   }
   function stopTick() { if (timerTick) { clearInterval(timerTick); timerTick = null; } }
@@ -168,12 +194,17 @@
     if (s && s.finishedAt) {
       const cnt = s.solved != null ? ` · ${s.solved} solved` : "";
       return `<div class="daily-timer">
-        <span class="timer-done">⏱ ${fmtDuration(s.finishedAt - s.startedAt)}${cnt}</span>
+        <span class="timer-done">⏱ ${fmtDuration(sessionElapsed(s))}${cnt}</span>
         <button class="timer-reset" id="dailyReset" type="button" title="Reset timer">↺</button></div>`;
     }
     if (s && s.startedAt) {
+      const running = isRunning(s);
+      const time = `<span class="timer-run${running ? "" : " paused"}">⏱ <span id="dailyTimer">${fmtDuration(sessionElapsed(s))}</span></span>`;
+      const pauseResume = running
+        ? `<button class="timer-pause" id="dailyPause" type="button" title="Pause">⏸ Pause</button>`
+        : `<button class="timer-resume" id="dailyResume" type="button" title="Resume">▶ Resume</button>`;
       return `<div class="daily-timer">
-        <span class="timer-run">⏱ <span id="dailyTimer">${fmtDuration(Date.now() - s.startedAt)}</span></span>
+        ${time}${pauseResume}
         <button class="timer-stop" id="dailyStop" type="button" title="Stop &amp; record">■ Stop</button>
         <button class="timer-reset" id="dailyReset" type="button" title="Reset timer">↺</button></div>`;
     }
@@ -246,7 +277,7 @@
     if (state.view === "list") renderList();
     Cloud.schedulePush();
     const s = todaySession();
-    const finishedMsg = s && s.finishedAt ? ` · Daily 5 done in ${fmtDuration(s.finishedAt - s.startedAt)} ⏱` : "";
+    const finishedMsg = s && s.finishedAt ? ` · Daily 5 done in ${fmtDuration(sessionElapsed(s))} ⏱` : "";
     toast(`Solved #${q.id} 🎉${finishedMsg}`, "ok");
   }
 
@@ -427,12 +458,14 @@
     $("#practice").addEventListener("click", (e) => {
       if (e.target.closest("#practiceRandom")) { randomPractice(); return; }
       if (e.target.closest("#dailyStart")) { timerStart(); renderPractice(); return; }
+      if (e.target.closest("#dailyPause")) { timerPause(); renderPractice(); return; }
+      if (e.target.closest("#dailyResume")) { timerResume(); renderPractice(); return; }
       if (e.target.closest("#dailyStop")) {
         const before = todaySession();
         timerFinish();
         renderPractice();
         const s = todaySession();
-        if (s && s.finishedAt && before) toast(`Recorded ${fmtDuration(s.finishedAt - s.startedAt)} · ${s.solved} solved ⏱`, "ok");
+        if (s && s.finishedAt && before) toast(`Recorded ${fmtDuration(sessionElapsed(s))} · ${s.solved} solved ⏱`, "ok");
         return;
       }
       if (e.target.closest("#dailyReset")) { timerReset(); renderPractice(); return; }
