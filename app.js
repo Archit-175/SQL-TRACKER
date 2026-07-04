@@ -534,6 +534,10 @@
     $("#syncSyncNow").addEventListener("click", () => { setSyncStatus("Syncing…", "busy"); Cloud.syncNow(); });
     $("#syncDisconnect").addEventListener("click", () => Cloud.disconnect());
     $("#syncSnapshot").addEventListener("click", downloadSnapshot);
+    // "Unlock & connect" → open the PIN prompt; a correct PIN auto-connects via the saved token.
+    $("#syncUnlock").addEventListener("click", () => { setSyncStatus("Enter your PIN to connect…", "busy"); openPin(); });
+    // Fallback: reveal manual token entry.
+    $("#syncUseToken").addEventListener("click", () => { manualTokenRevealed = true; setCloudUI(Cloud.state(), Cloud.lastSync()); $("#ghToken").focus(); });
 
     // Global esc
     document.addEventListener("keydown", (e) => {
@@ -562,8 +566,10 @@
   // ============ Sync modal helpers ============
   const CLOUD_LABEL = { off: "Not connected", syncing: "Syncing…", ok: "Synced", error: "Sync error" };
 
+  let manualTokenRevealed = false;
   function openSync() {
     setSyncStatus("", "");
+    manualTokenRevealed = false;
     setCloudUI(Cloud.state(), Cloud.lastSync());
     $("#syncBackdrop").hidden = false;
   }
@@ -591,13 +597,19 @@
     badge.className = "sync-badge" + (s !== "off" ? " " + s : "");
     $("#syncWhen").textContent = lastSync ? "last: " + new Date(lastSync).toLocaleString() : "";
 
-    // Controls: token+Connect when disconnected; Sync now + Disconnect when connected.
-    $("#tokenField").hidden = connected;
-    $("#syncConnect").hidden = connected;
+    // Connected controls.
     $("#syncSyncNow").hidden = !connected;
     $("#syncDisconnect").hidden = !connected;
     // Save snapshot only makes sense in edit mode (unlocked).
     $("#syncSnapshot").hidden = !state.unlocked;
+
+    // Disconnected: if this device already has the published token, guide the user to unlock with
+    // the PIN (auto-connect) instead of asking for a token. Manual token entry stays as a fallback.
+    const hasPub = Cloud.hasPublishedToken && Cloud.hasPublishedToken();
+    const showUnlockHint = !connected && hasPub && !manualTokenRevealed;
+    $("#syncUnlockHint").hidden = !showUnlockHint;
+    $("#tokenField").hidden = connected || showUnlockHint;
+    $("#syncConnect").hidden = connected || showUnlockHint;
   }
 
   // Download an updated progress.js for the owner to commit.
@@ -634,7 +646,7 @@
     render();
     // Cloud sync: reflect status in UI, re-render when a pull changes local data.
     Cloud.init({
-      onStatus: (s, last) => setCloudUI(s, last),
+      onStatus: (s, last) => { setCloudUI(s, last); if (s === "ok") setSyncStatus("", ""); },
       onData: () => render(),
       toast: (m) => toast(m),
     });

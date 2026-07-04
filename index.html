@@ -100,14 +100,24 @@
         <button class="icon-btn" id="syncClose" title="Close">&times;</button>
       </div>
       <p class="modal-note">
-        One private <b>Gist</b> shared across all your devices — no Gist ID to copy. Connect once
-        with a <b>gist</b>-scope token; the token is encrypted with your PIN and saved in
-        <code>progress.js</code>, so other devices auto-connect just by unlocking with the PIN.
+        One private <b>Gist</b> shared across all your devices. You paste a token only on the
+        <b>first</b> device; it's encrypted with your PIN and saved in <code>progress.js</code>, so
+        every other device just <b>unlocks with the PIN</b> to connect — no token, no Gist ID.
       </p>
 
       <div class="sync-row">
         <span class="sync-badge" id="syncBadge">Not connected</span>
         <span class="sync-when" id="syncWhen"></span>
+      </div>
+
+      <!-- Shown on a device that already has the published token: connect via PIN, no token needed -->
+      <div class="sync-hint" id="syncUnlockHint" hidden>
+        <div>🔒 This device already has your saved sync token. Just <b>unlock with your PIN</b> to
+          connect automatically — no token to paste.</div>
+        <div class="sync-hint-actions">
+          <button class="btn btn-accent" id="syncUnlock" type="button">Unlock &amp; connect</button>
+          <button class="linklike" id="syncUseToken" type="button">Use a token instead</button>
+        </div>
       </div>
 
       <div class="field" id="tokenField">
